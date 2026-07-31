@@ -3,9 +3,9 @@ import { prisma } from "@/lib/prisma"
 import { BiddingArena } from "./bidding-arena"
 import { redirect } from "next/navigation"
 
-export default async function SessionPage({ params }: { params: { id: string, sessionId: string } }) {
+export default async function SessionPage(props: { params: Promise<{ id: string, sessionId: string }> }) {
   const user = await requireUser()
-  const { id, sessionId } = await Promise.resolve(params)
+  const { id, sessionId } = await props.params
 
   const session = await prisma.huiSession.findUnique({
     where: { id: sessionId },

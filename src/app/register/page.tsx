@@ -9,10 +9,12 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Link from "next/link"
 import { CircleDollarSign, Loader2 } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 const banks = ["Vietcombank", "Techcombank", "MBBank", "ACB", "VietinBank", "BIDV", "Agribank", "VPBank", "TPBank", "Sacombank", "VIB"]
 
 export default function RegisterPage() {
+  const router = useRouter()
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [bankName, setBankName] = useState("")
@@ -30,6 +32,8 @@ export default function RegisterPage() {
     if (res?.error) {
       setError(res.error)
       setLoading(false)
+    } else if (res?.success) {
+      router.push("/")
     }
   }
 

@@ -8,8 +8,10 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
 import { CircleDollarSign, Loader2 } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 export default function LoginPage() {
+  const router = useRouter()
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
 
@@ -24,6 +26,8 @@ export default function LoginPage() {
     if (res?.error) {
       setError(res.error)
       setLoading(false)
+    } else if (res?.success) {
+      router.push("/")
     }
   }
 

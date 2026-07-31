@@ -14,7 +14,7 @@ export async function loginAction(formData: FormData) {
   if (!user) return { error: "Số điện thoại chưa được đăng ký" }
 
   await createSession(user.id, user.role)
-  redirect("/")
+  return { success: true }
 }
 
 export async function registerAction(formData: FormData) {
@@ -46,7 +46,7 @@ export async function registerAction(formData: FormData) {
   })
 
   await createSession(user.id, user.role)
-  redirect("/")
+  return { success: true }
 }
 
 export async function logoutAction() {

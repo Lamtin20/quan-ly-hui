@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Member } from "@prisma/client"
+import { User } from "@prisma/client"
 import { createMember, deleteMember } from "../actions/members"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -18,7 +18,7 @@ const banks = [
   "BIDV", "Agribank", "VPBank", "TPBank", "Sacombank", "VIB"
 ]
 
-export function MemberList({ initialMembers }: { initialMembers: Member[] }) {
+export function MemberList({ initialMembers }: { initialMembers: User[] }) {
   const [isOpen, setIsOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [formData, setFormData] = useState({
@@ -108,14 +108,14 @@ export function MemberList({ initialMembers }: { initialMembers: Member[] }) {
                 </TableCell>
               </TableRow>
             ) : (
-              initialMembers.map(member => (
-                <TableRow key={member.id}>
-                  <TableCell className="font-medium">{member.fullName}</TableCell>
-                  <TableCell>{member.phone}</TableCell>
-                  <TableCell>{member.bankName || "—"}</TableCell>
-                  <TableCell>{member.bankAccountNumber || "—"}</TableCell>
+              initialMembers.map(user => (
+                <TableRow key={user.id}>
+                  <TableCell className="font-medium">{user.fullName}</TableCell>
+                  <TableCell>{user.phone}</TableCell>
+                  <TableCell>{user.bankName || "—"}</TableCell>
+                  <TableCell>{user.bankAccountNumber || "—"}</TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="icon" onClick={() => handleDelete(member.id)} className="text-red-500 hover:text-red-700 hover:bg-red-50">
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(user.id)} className="text-red-500 hover:text-red-700 hover:bg-red-50">
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </TableCell>

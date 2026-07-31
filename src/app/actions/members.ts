@@ -9,9 +9,11 @@ export async function createMember(data: {
   bankName?: string
   bankAccountNumber?: string
 }) {
-  await prisma.member.create({
+  await prisma.user.create({
     data: {
       fullName: data.fullName,
+      password: "123456",
+      role: "MEMBER",
       phone: data.phone,
       bankName: data.bankName,
       bankAccountNumber: data.bankAccountNumber,
@@ -21,7 +23,7 @@ export async function createMember(data: {
 }
 
 export async function deleteMember(id: string) {
-  await prisma.member.delete({
+  await prisma.user.delete({
     where: { id }
   })
   revalidatePath("/", "layout")

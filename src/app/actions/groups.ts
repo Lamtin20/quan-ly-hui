@@ -9,9 +9,9 @@ export async function createHuiGroup(data: {
   cycle: string
   maxBidPercentage: number
   startDate: Date
-  memberIds: string[]
+  userIds: string[]
 }) {
-  const { name, amount, cycle, maxBidPercentage, startDate, memberIds } = data
+  const { name, amount, cycle, maxBidPercentage, startDate, userIds } = data
   
   await prisma.huiGroup.create({
     data: {
@@ -19,11 +19,11 @@ export async function createHuiGroup(data: {
       amount,
       cycle,
       maxBidPercentage,
-      totalSlots: memberIds.length,
+      totalSlots: userIds.length,
       startDate,
       huiMembers: {
-        create: memberIds.map(memberId => ({
-          memberId,
+        create: userIds.map(userId => ({
+          userId,
           slots: 1
         }))
       }

@@ -1,8 +1,12 @@
 import { prisma } from "@/lib/prisma"
 import { notFound } from "next/navigation"
 import { GroupDetail } from "./group-detail"
+import { requireUser } from "@/lib/server-auth"
 
 export default async function GroupDetailPage(props: { params: Promise<{ id: string }> }) {
+  const user = await requireUser()
+  const isAdmin = user.role === "ADMIN"
+
   const params = await props.params;
   const groupId = params.id
   
@@ -10,12 +14,12 @@ export default async function GroupDetailPage(props: { params: Promise<{ id: str
     where: { id: groupId },
     include: {
       huiMembers: {
-        include: { member: true }
+        include: { user: true }
       },
       sessions: {
         include: {
           payments: {
-            include: { member: true }
+            include: { user: true }
           }
         },
         orderBy: { sessionNumber: "asc" }
@@ -36,7 +40,7 @@ export default async function GroupDetailPage(props: { params: Promise<{ id: str
         </div>
       </div>
 
-      <GroupDetail initialGroup={group} />
+      <GroupDetail initialGroup={group} isAdmin={isAdmin} />
     </div>
   )
 }

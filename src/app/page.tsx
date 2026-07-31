@@ -1,16 +1,36 @@
 import { prisma } from "@/lib/prisma"
+import { requireUser } from "@/lib/server-auth"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Users, CircleDollarSign, TrendingUp, Activity } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import Link from "next/link"
 
 export default async function DashboardPage() {
-  const membersCount = await prisma.member.count()
-  const groupsCount = await prisma.huiGroup.count()
-  const activeSessionsCount = await prisma.huiSession.count({
-    where: { status: "PENDING" }
-  })
+  const user = await requireUser()
+  const isAdmin = user.role === "ADMIN"
 
-  // Format currency
+  const membersCount = await prisma.user.count()
+  
+  let groupsCount = 0
+  let activeSessionsCount = 0
+
+  if (isAdmin) {
+    groupsCount = await prisma.huiGroup.count()
+    activeSessionsCount = await prisma.huiSession.count({
+      where: { status: "BIDDING" } // Thay vì PENDING
+    })
+  } else {
+    groupsCount = await prisma.huiGroup.count({
+      where: { huiMembers: { some: { userId: user.id } } }
+    })
+    activeSessionsCount = await prisma.huiSession.count({
+      where: {
+        status: "BIDDING",
+        huiGroup: { huiMembers: { some: { userId: user.id } } }
+      }
+    })
+  }
+
   const formatVND = (amount: number) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount)
   }
@@ -21,20 +41,22 @@ export default async function DashboardPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Tổng quan</h1>
           <p className="text-muted-foreground mt-1">
-            Theo dõi tình hình các dây hụi và thành viên của bạn.
+            Chào {user.fullName}, đây là tình hình các dây hụi của bạn.
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button>Tạo Dây Hụi Mới</Button>
-          <Button variant="secondary">Thêm Thành Viên</Button>
-        </div>
+        {isAdmin && (
+          <div className="flex gap-2">
+            <Link href="/groups"><Button>Tạo Dây Hụi Mới</Button></Link>
+            <Link href="/members"><Button variant="secondary">Quản lý Thành Viên</Button></Link>
+          </div>
+        )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="hover:shadow-md transition-shadow">
+        <Card className="hover:shadow-md transition-shadow border-indigo-100 bg-white/70 backdrop-blur-md">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tổng Dây Hụi</CardTitle>
-            <CircleDollarSign className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Dây Hụi Đã Tham Gia</CardTitle>
+            <CircleDollarSign className="h-4 w-4 text-indigo-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{groupsCount}</div>
@@ -43,74 +65,64 @@ export default async function DashboardPage() {
             </p>
           </CardContent>
         </Card>
-        <Card className="hover:shadow-md transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Thành Viên</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{membersCount}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Tổng số người tham gia chơi
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="hover:shadow-md transition-shadow">
+        
+        {isAdmin && (
+          <Card className="hover:shadow-md transition-shadow border-indigo-100 bg-white/70 backdrop-blur-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Tổng Thành Viên</CardTitle>
+              <Users className="h-4 w-4 text-indigo-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{membersCount}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Người chơi trên toàn hệ thống
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        <Card className="hover:shadow-md transition-shadow border-indigo-100 bg-white/70 backdrop-blur-md">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Kỳ Hụi Đang Mở</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
+            <Activity className="h-4 w-4 text-indigo-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{activeSessionsCount}</div>
+            <div className="text-2xl font-bold text-rose-600">{activeSessionsCount}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              Các kỳ đang chờ khui hụi
+              Cần bạn tham gia bỏ thăm (kêu hụi)
             </p>
           </CardContent>
         </Card>
-        <Card className="hover:shadow-md transition-shadow">
+        
+        <Card className="hover:shadow-md transition-shadow border-indigo-100 bg-white/70 backdrop-blur-md">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tổng Doanh Thu Ước Tính</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Tiền Hụi Đã Đóng</CardTitle>
+            <TrendingUp className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatVND(0)}</div>
+            <div className="text-2xl font-bold text-emerald-600">{formatVND(0)}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              Tiền thảo (hoa hồng)
+              Tổng số tiền bạn đã đóng
             </p>
           </CardContent>
         </Card>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4 hover:shadow-md transition-shadow">
+        <Card className="col-span-4 hover:shadow-md transition-shadow border-indigo-100 bg-white/70 backdrop-blur-md">
           <CardHeader>
-            <CardTitle>Dây Hụi Gần Đây</CardTitle>
+            <CardTitle>Dây Hụi Của Bạn</CardTitle>
             <CardDescription>
-              Bạn chưa có dây hụi nào được tạo.
+              Các dây hụi bạn đang tham gia.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <CircleDollarSign className="h-12 w-12 text-muted-foreground/30 mb-4" />
-              <h3 className="text-lg font-semibold">Chưa có dữ liệu</h3>
-              <p className="text-sm text-muted-foreground max-w-sm mt-2">
-                Bắt đầu bằng cách tạo một dây hụi mới để theo dõi kỳ khui hụi và quản lý thành viên tham gia.
-              </p>
-              <Button className="mt-6">Tạo Dây Hụi Ngay</Button>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="col-span-3 hover:shadow-md transition-shadow">
-          <CardHeader>
-            <CardTitle>Thành Viên Mới</CardTitle>
-            <CardDescription>
-              Các thành viên vừa được thêm vào hệ thống.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Users className="h-12 w-12 text-muted-foreground/30 mb-4" />
-              <p className="text-sm text-muted-foreground">Chưa có thành viên nào.</p>
+              <h3 className="text-lg font-semibold">Đang cập nhật...</h3>
+              <Link href="/groups" className="mt-4 text-indigo-600 font-medium hover:underline">
+                Xem tất cả Dây Hụi →
+              </Link>
             </div>
           </CardContent>
         </Card>

@@ -1,22 +1,21 @@
 "use client"
 
 import { useState } from "react"
-import { HuiGroup, HuiMember, HuiSession, Member, Payment } from "@prisma/client"
-import { createSessionAndBidding } from "../../actions/sessions"
+import { User, HuiGroup, HuiMember, HuiSession, Payment } from "@prisma/client"
+import { startNewSession } from "../../actions/sessions"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { QrCode, PlayCircle, CheckCircle2 } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { QrCode, PlayCircle, ArrowRight, Loader2, AlertCircle } from "lucide-react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
 
 type FullGroup = HuiGroup & {
-  huiMembers: (HuiMember & { member: Member })[]
+  huiMembers: (HuiMember & { user: User })[]
   sessions: (HuiSession & {
-    payments: (Payment & { member: Member })[]
+    payments: (Payment & { user: User })[]
   })[]
 }
 
@@ -30,47 +29,21 @@ const getBankBin = (bankName: string) => {
   return map[bankName] || bankName
 }
 
-export function GroupDetail({ initialGroup }: { initialGroup: FullGroup }) {
-  const [isOpen, setIsOpen] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [qrPayment, setQrPayment] = useState<any>(null)
+export function GroupDetail({ initialGroup, isAdmin }: { initialGroup: FullGroup, isAdmin: boolean }) {
+  const router = useRouter()
+  const [isStarting, setIsStarting] = useState(false)
   
-  const [formData, setFormData] = useState({
-    winnerMemberId: "",
-    bidAmount: "0"
-  })
+  const deadMemberIds = initialGroup.sessions.map(s => s.winnerUserId).filter(Boolean) as string[]
+  const livingMembers = initialGroup.huiMembers.filter(hm => !deadMemberIds.includes(hm.userId))
 
-  // Tìm người chưa hốt (Hụi Sống)
-  const deadMemberIds = initialGroup.sessions.map(s => s.winnerMemberId).filter(Boolean) as string[]
-  const livingMembers = initialGroup.huiMembers.filter(hm => !deadMemberIds.includes(hm.memberId))
-
-  const maxBid = (initialGroup.amount * initialGroup.maxBidPercentage) / 100
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!formData.winnerMemberId) {
-      alert("Vui lòng chọn người hốt hụi!")
-      return
-    }
-    const bidNum = parseFloat(formData.bidAmount)
-    if (bidNum > maxBid) {
-      alert(`Giá kêu không được vượt quá ${initialGroup.maxBidPercentage}% (${formatVND(maxBid)})`)
-      return
-    }
-
+  const handleStartSession = async () => {
     try {
-      setIsSubmitting(true)
-      await createSessionAndBidding({
-        groupId: initialGroup.id,
-        winnerMemberId: formData.winnerMemberId,
-        bidAmount: bidNum
-      })
-      setIsOpen(false)
-      setFormData({ winnerMemberId: "", bidAmount: "0" })
+      setIsStarting(true)
+      const sessionId = await startNewSession(initialGroup.id)
+      router.push(`/groups/${initialGroup.id}/sessions/${sessionId}`)
     } catch (error: any) {
       alert(error.message || "Đã xảy ra lỗi!")
-    } finally {
-      setIsSubmitting(false)
+      setIsStarting(false)
     }
   }
 
@@ -78,154 +51,147 @@ export function GroupDetail({ initialGroup }: { initialGroup: FullGroup }) {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount)
   }
 
-  const getWinnerInfo = (memberId: string | null) => {
-    if (!memberId) return null
-    return initialGroup.huiMembers.find(hm => hm.memberId === memberId)?.member
+  const getWinnerInfo = (userId: string | null) => {
+    if (!userId) return null
+    return initialGroup.huiMembers.find(hm => hm.userId === userId)?.user
   }
+
+  const activeSession = initialGroup.sessions.find(s => s.status !== "DONE")
 
   return (
     <div className="flex flex-col gap-6">
-      
-      {/* Nút Khui Hụi */}
-      {initialGroup.status !== "FINISHED" && (
+      {activeSession && (
+        <Card className="border-rose-200 bg-rose-50 shadow-md">
+          <CardContent className="flex flex-col md:flex-row items-center justify-between p-6">
+            <div className="flex items-center text-rose-700 mb-4 md:mb-0">
+              <AlertCircle className="w-8 h-8 mr-3" />
+              <div>
+                <h3 className="font-bold text-lg">Đang có kỳ hụi chờ đấu giá (Kỳ {activeSession.sessionNumber})</h3>
+                <p className="text-sm opacity-90">Hãy vào kêu giá hoặc chốt kết quả ngay!</p>
+              </div>
+            </div>
+            <Link href={`/groups/${initialGroup.id}/sessions/${activeSession.id}`}>
+              <Button className="bg-rose-600 hover:bg-rose-700">Vào Kỳ Hụi <ArrowRight className="ml-2 w-4 h-4" /></Button>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
+      {!activeSession && initialGroup.status !== "FINISHED" && isAdmin && (
         <div className="flex justify-end">
-          <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => setIsOpen(true)}>
-              <PlayCircle className="mr-2 h-5 w-5" /> Khui Hụi Kỳ {initialGroup.sessions.length + 1}
-            </Button>
-            <DialogContent>
-              <form onSubmit={handleSubmit}>
-                <DialogHeader>
-                  <DialogTitle>Khui Hụi Kỳ {initialGroup.sessions.length + 1}</DialogTitle>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="bg-amber-50 p-3 rounded-md border border-amber-200 mb-2">
-                    <p className="text-sm text-amber-800">
-                      <strong>Quy định đấu thầu:</strong> Tối đa kêu {initialGroup.maxBidPercentage}% = {formatVND(maxBid)}
-                    </p>
-                  </div>
-                  
-                  <div className="grid gap-2">
-                    <Label>Người kêu trúng (Hốt hụi)</Label>
-                    <Select value={formData.winnerMemberId} onValueChange={(v) => setFormData({...formData, winnerMemberId: v || ""})}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Chọn người thắng" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {livingMembers.map(hm => (
-                          <SelectItem key={hm.member.id} value={hm.member.id}>
-                            {hm.member.fullName} - {hm.member.phone}
-                          </SelectItem>
-                        ))}
-                        {livingMembers.length === 0 && (
-                          <SelectItem value="empty" disabled>Đã hốt hết!</SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="bidAmount">Giá kêu (Thấp nhất là 0, Max là {formatVND(maxBid)})</Label>
-                    <Input id="bidAmount" type="number" required max={maxBid} min={0} value={formData.bidAmount} onChange={(e) => setFormData({...formData, bidAmount: e.target.value})} />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>Hủy</Button>
-                  <Button type="submit" disabled={isSubmitting || livingMembers.length === 0}>Xác nhận chốt hụi</Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
+          <Button size="lg" className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md hover:scale-105 transition-transform" onClick={handleStartSession} disabled={isStarting}>
+            {isStarting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <PlayCircle className="mr-2 h-5 w-5" />}
+            Mở Kỳ Khui Hụi {initialGroup.sessions.length + 1}
+          </Button>
         </div>
       )}
 
-      {/* Danh sách các kỳ hụi đã qua */}
-      <div className="grid gap-4">
-        <h2 className="text-xl font-semibold mt-4">Lịch sử khui hụi</h2>
+      <div className="grid gap-6">
+        <h2 className="text-xl font-semibold mt-2">Danh sách kỳ hụi</h2>
         {initialGroup.sessions.length === 0 ? (
           <Card>
-            <CardContent className="p-8 text-center text-muted-foreground">
-              Chưa có kỳ hụi nào được khui. Hãy bấm "Khui Hụi" để bắt đầu kỳ đầu tiên!
+            <CardContent className="p-12 text-center text-muted-foreground flex flex-col items-center">
+              <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-4">
+                <PlayCircle className="w-8 h-8 text-slate-300" />
+              </div>
+              <p>Chưa có kỳ hụi nào được khui.</p>
             </CardContent>
           </Card>
         ) : (
-          initialGroup.sessions.map(session => {
-            const winner = getWinnerInfo(session.winnerMemberId)
+          initialGroup.sessions.slice().reverse().map(session => {
+            const winner = getWinnerInfo(session.winnerUserId)
             return (
-              <Card key={session.id} className="overflow-hidden">
-                <div className="bg-muted px-4 py-3 border-b flex justify-between items-center">
-                  <div className="font-semibold flex items-center">
-                    <Badge variant="default" className="mr-2">Kỳ {session.sessionNumber}</Badge>
-                    <span>Người hốt: <span className="text-primary">{winner?.fullName}</span></span>
+              <Card key={session.id} className="overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                <div className="bg-gradient-to-r from-slate-50 to-white px-6 py-4 border-b flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-3">
+                      <Badge className="bg-indigo-600 text-white">Kỳ {session.sessionNumber}</Badge>
+                      <Badge variant={session.status === "DONE" ? "outline" : "secondary"}>
+                        {session.status === "DONE" ? "Đã Hoàn Thành" : "Đang Tiến Hành"}
+                      </Badge>
+                    </div>
+                    {session.status === "DONE" && (
+                      <p className="mt-2 text-sm">Người hốt: <span className="font-bold text-indigo-700">{winner?.fullName}</span></p>
+                    )}
                   </div>
-                  <div className="text-sm">
-                    Kêu giá: <span className="font-bold text-red-600">{formatVND(session.bidAmount)}</span> | 
-                    Thực nhận: <span className="font-bold text-green-600 ml-1">{formatVND(session.winnerReceivedAmount)}</span>
-                  </div>
+
+                  {session.status === "DONE" ? (
+                    <div className="text-sm bg-white p-3 rounded-lg border shadow-sm flex flex-col items-end">
+                      <span className="text-muted-foreground">Kêu giá: <span className="font-bold text-rose-600">{formatVND(session.bidAmount)}</span></span>
+                      <span className="text-muted-foreground mt-1">Thực nhận: <span className="font-bold text-emerald-600">{formatVND(session.winnerReceivedAmount)}</span></span>
+                    </div>
+                  ) : (
+                    <Link href={`/groups/${initialGroup.id}/sessions/${session.id}`}>
+                      <Button variant="outline" className="border-indigo-200 text-indigo-700 hover:bg-indigo-50">Chi Tiết Kỳ Hụi <ArrowRight className="w-4 h-4 ml-2"/></Button>
+                    </Link>
+                  )}
                 </div>
-                <CardContent className="p-0">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-muted/30">
-                        <TableHead className="pl-4">Người phải đóng</TableHead>
-                        <TableHead>Loại Hụi</TableHead>
-                        <TableHead>Số tiền</TableHead>
-                        <TableHead>Thanh toán (VietQR)</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {session.payments.map(payment => (
-                        <TableRow key={payment.id}>
-                          <TableCell className="pl-4 font-medium">{payment.member.fullName}</TableCell>
-                          <TableCell>
-                            {payment.isDead ? (
-                              <Badge variant="destructive" className="bg-red-100 text-red-700 hover:bg-red-100">Hụi Chết</Badge>
-                            ) : (
-                              <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100">Hụi Sống</Badge>
-                            )}
-                          </TableCell>
-                          <TableCell className="font-semibold">{formatVND(payment.amountToPay)}</TableCell>
-                          <TableCell>
-                            {winner?.bankName && winner?.bankAccountNumber ? (
-                              <Dialog>
-                                <DialogTrigger>
-                                  <Button variant="outline" size="sm" className="h-8" type="button">
-                                    <QrCode className="w-4 h-4 mr-1"/> Hiện QR
-                                  </Button>
-                                </DialogTrigger>
-                                <DialogContent className="sm:max-w-md flex flex-col items-center p-8">
-                                  <DialogHeader>
-                                    <DialogTitle className="text-center mb-4">Quét mã chuyển tiền cho {winner.fullName}</DialogTitle>
-                                  </DialogHeader>
-                                  <div className="bg-white p-4 rounded-xl shadow-sm border mb-4">
-                                    {/* VietQR Integration */}
-                                    <img 
-                                      src={`https://img.vietqr.io/image/${getBankBin(winner.bankName)}-${winner.bankAccountNumber}-compact2.png?amount=${payment.amountToPay}&addInfo=Dong hui ky ${session.sessionNumber} cho ${winner.fullName}`}
-                                      alt="VietQR"
-                                      className="w-64 h-64 object-contain"
-                                    />
-                                  </div>
-                                  <div className="text-center text-sm space-y-1">
-                                    <p>Ngân hàng: <strong>{winner.bankName}</strong></p>
-                                    <p>STK: <strong>{winner.bankAccountNumber}</strong></p>
-                                    <p>Số tiền: <strong className="text-red-600">{formatVND(payment.amountToPay)}</strong></p>
-                                  </div>
-                                </DialogContent>
-                              </Dialog>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">Người hốt chưa có STK</span>
-                            )}
-                          </TableCell>
+
+                {session.status === "DONE" && (
+                  <CardContent className="p-0 overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-slate-50/50">
+                          <TableHead className="pl-6 w-[200px]">Hụi Viên</TableHead>
+                          <TableHead>Loại Hụi</TableHead>
+                          <TableHead>Số tiền cần đóng</TableHead>
+                          <TableHead className="text-right pr-6">Mã QR Thanh Toán</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
+                      </TableHeader>
+                      <TableBody>
+                        {session.payments.map(payment => (
+                          <TableRow key={payment.id}>
+                            <TableCell className="pl-6 font-medium">{payment.user.fullName}</TableCell>
+                            <TableCell>
+                              {payment.isDead ? (
+                                <Badge variant="destructive" className="bg-rose-100 text-rose-700 hover:bg-rose-100 border-rose-200">Hụi Chết</Badge>
+                              ) : (
+                                <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-emerald-200">Hụi Sống</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="font-bold text-slate-700">{formatVND(payment.amountToPay)}</TableCell>
+                            <TableCell className="text-right pr-6">
+                              {winner?.bankName && winner?.bankAccountNumber ? (
+                                <Dialog>
+                                  <DialogTrigger>
+                                    <Button variant="outline" size="sm" className="h-8 shadow-sm" type="button">
+                                      <QrCode className="w-4 h-4 mr-2 text-indigo-600"/> QR Code
+                                    </Button>
+                                  </DialogTrigger>
+                                  <DialogContent className="sm:max-w-md flex flex-col items-center p-8">
+                                    <DialogHeader>
+                                      <DialogTitle className="text-center mb-4">Chuyển Tiền Hụi Kỳ {session.sessionNumber}</DialogTitle>
+                                    </DialogHeader>
+                                    <div className="bg-white p-4 rounded-xl shadow-md border mb-4">
+                                      <img 
+                                        src={`https://img.vietqr.io/image/${getBankBin(winner.bankName)}-${winner.bankAccountNumber}-compact2.png?amount=${payment.amountToPay}&addInfo=Hui Ky ${session.sessionNumber}`}
+                                        alt="VietQR"
+                                        className="w-64 h-64 object-contain"
+                                      />
+                                    </div>
+                                    <div className="text-center text-sm space-y-2 w-full bg-slate-50 p-4 rounded-lg border">
+                                      <div className="flex justify-between border-b pb-2"><span className="text-muted-foreground">Người nhận:</span> <strong className="text-indigo-700">{winner.fullName}</strong></div>
+                                      <div className="flex justify-between border-b pb-2"><span className="text-muted-foreground">Ngân hàng:</span> <strong>{winner.bankName}</strong></div>
+                                      <div className="flex justify-between border-b pb-2"><span className="text-muted-foreground">Số TK:</span> <strong>{winner.bankAccountNumber}</strong></div>
+                                      <div className="flex justify-between pt-1"><span className="text-muted-foreground">Số tiền:</span> <strong className="text-rose-600 text-lg">{formatVND(payment.amountToPay)}</strong></div>
+                                    </div>
+                                  </DialogContent>
+                                </Dialog>
+                              ) : (
+                                <span className="text-xs text-muted-foreground italic">Chưa cấu hình Ngân Hàng</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                )}
               </Card>
             )
           })
         )}
       </div>
-
     </div>
   )
 }

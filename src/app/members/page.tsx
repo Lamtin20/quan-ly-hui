@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma"
 import { MemberList } from "./member-list"
 
 export default async function MembersPage() {
-  const members = await prisma.member.findMany({
+  const members = await prisma.user.findMany({
     orderBy: { createdAt: "desc" }
   })
 

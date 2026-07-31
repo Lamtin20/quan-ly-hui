@@ -29,12 +29,12 @@ export async function createHuiGroup(data: {
       }
     }
   })
-  revalidatePath("/groups")
+  revalidatePath("/", "layout")
 }
 
 export async function deleteHuiGroup(id: string) {
   await prisma.huiGroup.delete({
     where: { id }
   })
-  revalidatePath("/groups")
+  revalidatePath("/", "layout")
 }

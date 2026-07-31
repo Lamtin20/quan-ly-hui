@@ -17,12 +17,12 @@ export async function createMember(data: {
       bankAccountNumber: data.bankAccountNumber,
     }
   })
-  revalidatePath("/members")
+  revalidatePath("/", "layout")
 }
 
 export async function deleteMember(id: string) {
   await prisma.member.delete({
     where: { id }
   })
-  revalidatePath("/members")
+  revalidatePath("/", "layout")
 }

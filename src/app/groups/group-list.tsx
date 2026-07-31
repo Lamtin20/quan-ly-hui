@@ -123,7 +123,7 @@ export function GroupList({
                   </div>
 
                   <div className="border-t pt-4">
-                    <Label className="text-base font-semibold mb-2 block">Chọn Hụi Viên Tham Gia ({selectedMemberIds.length} người)</Label>
+                    <Label className="text-base font-semibold mb-2 block">Chọn Hụi Viên Tham Gia (Đã chọn {selectedMemberIds.length} / Tổng {members.length} người)</Label>
                     <div className="grid grid-cols-2 gap-2 mt-2 max-h-48 overflow-y-auto p-2 border rounded-md bg-muted/20">
                       {members.map(member => (
                         <div key={member.id} className="flex items-center space-x-2">

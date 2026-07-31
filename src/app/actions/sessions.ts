@@ -97,6 +97,6 @@ export async function createSessionAndBidding(data: {
     return session.id
   })
 
-  revalidatePath(`/groups/${groupId}`)
+  revalidatePath("/", "layout")
   return result
 }

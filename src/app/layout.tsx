@@ -28,17 +28,19 @@ export default function RootLayout({
   return (
     <html lang="vi">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-slate-50 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-100 via-white to-slate-50 text-foreground`}
       >
         <TooltipProvider>
           <SidebarProvider>
             <AppSidebar />
-            <main className="w-full h-screen overflow-y-auto bg-muted/20">
-              <div className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm">
+            <main className="w-full h-screen overflow-y-auto">
+              <div className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b border-indigo-100 bg-white/70 px-4 backdrop-blur-md shadow-sm">
                 <SidebarTrigger />
-                <div className="font-semibold text-sm">Hệ thống Quản lý Hụi</div>
+                <div className="font-semibold text-sm bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">
+                  Hệ thống Quản lý Hụi
+                </div>
               </div>
-              <div className="p-6">{children}</div>
+              <div className="p-6 max-w-7xl mx-auto">{children}</div>
             </main>
           </SidebarProvider>
         </TooltipProvider>

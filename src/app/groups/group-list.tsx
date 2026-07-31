@@ -192,11 +192,11 @@ export function GroupList({
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-2">
-                      <Button variant="outline" size="sm" asChild>
-                        <a href={`/groups/${group.id}`}>
+                      <a href={`/groups/${group.id}`}>
+                        <Button variant="outline" size="sm" type="button">
                           <ExternalLink className="h-4 w-4 mr-1" /> Chi tiết
-                        </a>
-                      </Button>
+                        </Button>
+                      </a>
                       <Button variant="ghost" size="icon" onClick={() => handleDelete(group.id)} className="text-red-500 hover:text-red-700 hover:bg-red-50">
                         <Trash2 className="h-4 w-4" />
                       </Button>

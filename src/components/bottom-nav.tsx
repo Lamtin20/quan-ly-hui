@@ -2,12 +2,13 @@
 
 import { usePathname } from "next/navigation"
 import Link from "next/link"
-import { LayoutDashboard, Users, FolderOpen } from "lucide-react"
+import { LayoutDashboard, Users, FolderOpen, HelpCircle } from "lucide-react"
 
 const navItems = [
   { title: "Tổng quan", url: "/", icon: LayoutDashboard },
   { title: "Dây Hụi", url: "/groups", icon: FolderOpen },
   { title: "Thành viên", url: "/members", icon: Users },
+  { title: "Hướng dẫn", url: "/guide", icon: HelpCircle },
 ]
 
 export function BottomNav() {

@@ -12,7 +12,8 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar"
-import { Calendar, LayoutDashboard, Users, CircleDollarSign, Settings, Bell } from "lucide-react"
+import Link from "next/link"
+import { Calendar, LayoutDashboard, Users, CircleDollarSign, Settings, Bell, HelpCircle } from "lucide-react"
 
 const items = [
   {
@@ -34,6 +35,11 @@ const items = [
     title: "Kỳ Mở Hụi",
     url: "/sessions",
     icon: Calendar,
+  },
+  {
+    title: "Hướng dẫn chơi",
+    url: "/guide",
+    icon: HelpCircle,
   },
 ]
 
@@ -61,12 +67,12 @@ export function AppSidebar() {
                 const isActive = item.url === "/" ? pathname === "/" : pathname.startsWith(item.url)
                 return (
                   <SidebarMenuItem key={item.title}>
-                    <a href={item.url} className="w-full block">
+                    <Link href={item.url} className="w-full block">
                       <SidebarMenuButton tooltip={item.title} isActive={isActive}>
                         <item.icon className={isActive ? "text-primary" : ""} />
                         <span className={isActive ? "font-semibold text-primary" : ""}>{item.title}</span>
                       </SidebarMenuButton>
-                    </a>
+                    </Link>
                   </SidebarMenuItem>
                 )
               })}
@@ -77,12 +83,12 @@ export function AppSidebar() {
       <SidebarFooter className="border-t p-4">
         <SidebarMenu>
           <SidebarMenuItem>
-            <a href="/settings" className="w-full block">
+            <Link href="/settings" className="w-full block">
               <SidebarMenuButton tooltip="Cài đặt">
                 <Settings />
                 <span>Cài đặt</span>
               </SidebarMenuButton>
-            </a>
+            </Link>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>

@@ -1,7 +1,6 @@
 "use client"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { CircleDollarSign, Landmark, HelpCircle, BookOpen, ShieldCheck, CheckCircle2 } from "lucide-react"
 
 export default function GuidePage() {

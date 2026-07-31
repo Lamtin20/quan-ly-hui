@@ -1,0 +1,80 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String   @unique
+  role      String   @default("ADMIN") // Role: ADMIN, MEMBER
+  createdAt DateTime @default(now())
+}
+
+model Member {
+  id                String       @id @default(cuid())
+  fullName          String
+  phone             String
+  address           String?
+  note              String?
+  bankName          String?      // Tên ngân hàng
+  bankAccountNumber String?      // Số tài khoản
+  huiMembers        HuiMember[]
+  payments          Payment[]
+  createdAt         DateTime     @default(now())
+}
+
+model HuiGroup {
+  id               String       @id @default(cuid())
+  name             String
+  amount           Float        // Mệnh giá hụi
+  cycle            String       @default("MONTHLY") // Cycle: DAILY, WEEKLY, MONTHLY, CUSTOM...
+  maxBidPercentage Float        @default(10) // Giới hạn mức kêu tối đa (%)
+  totalSlots       Int          // Tổng số phần (chân hụi)
+  startDate        DateTime
+  status           String       @default("OPEN") // HuiStatus: OPEN, RUNNING, FINISHED
+  huiMembers       HuiMember[]
+  sessions         HuiSession[]
+  createdAt        DateTime     @default(now())
+}
+
+model HuiMember {
+  id         String   @id @default(cuid())
+  huiGroupId String
+  huiGroup   HuiGroup @relation(fields: [huiGroupId], references: [id], onDelete: Cascade)
+  memberId   String
+  member     Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  slots      Int      @default(1)
+}
+
+model HuiSession {
+  id                   String    @id @default(cuid())
+  huiGroupId           String
+  huiGroup             HuiGroup  @relation(fields: [huiGroupId], references: [id], onDelete: Cascade)
+  sessionNumber        Int
+  openDate             DateTime  @default(now())
+  winnerMemberId       String?
+  bidAmount            Float     @default(0) // Giá bỏ thăm
+  winnerReceivedAmount Float     @default(0) // Thực nhận
+  status               String    @default("PENDING") // SessionStatus: PENDING, DONE
+  payments             Payment[]
+}
+
+model Payment {
+  id          String     @id @default(cuid())
+  sessionId   String
+  session     HuiSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  memberId    String
+  member      Member     @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  isDead      Boolean    @default(false) // Hụi chết/sống
+  amountToPay Float
+  paidStatus  String     @default("UNPAID") // PaidStatus: UNPAID, PAID
+  paidAt      DateTime?
+}

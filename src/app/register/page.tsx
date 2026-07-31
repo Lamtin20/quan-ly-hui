@@ -47,7 +47,6 @@ export default function RegisterPage() {
   }
 
   return (
-  return (
     <div className="min-h-screen relative flex items-center justify-center p-4 overflow-hidden bg-slate-50/80 font-sans">
       {/* Ambient background light like Apple/Google marketing pages */}
       <div className="absolute top-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-purple-500/10 blur-[120px] pointer-events-none" />

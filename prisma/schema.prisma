@@ -31,6 +31,8 @@ model HuiGroup {
   name             String
   amount           Float        // Mệnh giá hụi
   cycle            String       @default("MONTHLY") // Cycle: DAILY, WEEKLY, MONTHLY, CUSTOM...
+  biddingDays      String?      // Các ngày khui hụi tùy chọn (VD: "5, 20")
+  isPublic         Boolean      @default(false) // Công khai cho mọi người tự tham gia
   maxBidPercentage Float        @default(10) // Giới hạn mức kêu tối đa (%)
   totalSlots       Int          // Tổng số phần (chân hụi)
   startDate        DateTime

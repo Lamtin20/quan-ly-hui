@@ -11,7 +11,11 @@ export default async function SessionPage(props: { params: Promise<{ id: string,
     where: { id: sessionId },
     include: {
       huiGroup: {
-        include: { huiMembers: true }
+        include: { 
+          huiMembers: {
+            include: { user: true }
+          }
+        }
       },
       bids: {
         include: { user: true }

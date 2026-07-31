@@ -15,22 +15,28 @@ export async function startNewSession(groupId: string) {
   
   if (!group) throw new Error("Không tìm thấy dây hụi")
 
-  if (group.sessions.length >= group.totalSlots) {
+  const doneSessions = group.sessions.filter(s => s.status === "DONE")
+  if (doneSessions.length >= group.totalSlots) {
     throw new Error("Dây hụi này đã kết thúc")
   }
 
-  const activeSession = group.sessions.find(s => s.status !== "DONE")
+  const activeSession = group.sessions.find(s => s.status === "BIDDING" || s.status === "TIE_BREAKER")
   if (activeSession) {
     throw new Error("Đang có một kỳ hụi chưa hoàn thành (Kỳ " + activeSession.sessionNumber + ")")
   }
 
-  const session = await prisma.huiSession.create({
+  const nextSession = group.sessions
+    .filter(s => s.status === "PENDING")
+    .sort((a, b) => a.sessionNumber - b.sessionNumber)[0]
+
+  if (!nextSession) {
+    throw new Error("Không tìm thấy kỳ hụi tiếp theo")
+  }
+
+  await prisma.huiSession.update({
+    where: { id: nextSession.id },
     data: {
-      huiGroupId: groupId,
-      sessionNumber: group.sessions.length + 1,
-      status: "BIDDING",
-      bidAmount: 0,
-      winnerReceivedAmount: 0
+      status: "BIDDING"
     }
   })
 
@@ -42,5 +48,5 @@ export async function startNewSession(groupId: string) {
   }
 
   revalidatePath("/", "layout")
-  return session.id
+  return nextSession.id
 }

@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Link from "next/link"
-import { CircleDollarSign, Loader2 } from "lucide-react"
+import { Coins, Loader2, Phone, User, Landmark, CreditCard } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 const banks = ["Vietcombank", "Techcombank", "MBBank", "ACB", "VietinBank", "BIDV", "Agribank", "VPBank", "TPBank", "Sacombank", "VIB"]
@@ -24,77 +24,131 @@ export default function RegisterPage() {
     setLoading(true)
     setError("")
     
-    const formData = new FormData(e.currentTarget)
-    formData.set("bankName", bankName) // append from state
-    
-    const res = await registerAction(formData)
-    
-    if (res?.error) {
-      setError(res.error)
+    try {
+      const formData = new FormData(e.currentTarget)
+      formData.set("bankName", bankName) // append from state
+      
+      const res = await registerAction(formData)
+      
+      if (res?.error) {
+        setError(res.error)
+        setLoading(false)
+      } else if (res?.success) {
+        router.push("/")
+      } else {
+        setError("Không nhận được phản hồi từ hệ thống.")
+        setLoading(false)
+      }
+    } catch (err: any) {
+      console.error(err)
+      setError("Đã xảy ra lỗi khi kết nối máy chủ. Vui lòng thử lại.")
       setLoading(false)
-    } else if (res?.success) {
-      router.push("/")
     }
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-100 via-white to-slate-50 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md backdrop-blur-md bg-white/70 shadow-xl border-indigo-100">
-        <CardHeader className="text-center space-y-4 pb-4">
-          <div className="mx-auto bg-gradient-to-tr from-indigo-600 to-violet-600 w-12 h-12 rounded-xl flex items-center justify-center shadow-lg transform -rotate-6">
-            <CircleDollarSign className="text-white w-7 h-7" />
+    <div className="min-h-screen relative flex items-center justify-center p-4 overflow-hidden bg-slate-950 font-sans">
+      {/* Ambient background light like Apple/Google marketing pages */}
+      <div className="absolute top-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-purple-500/10 blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-indigo-500/10 blur-[120px] pointer-events-none" />
+      
+      <Card className="w-full max-w-[450px] border border-white/[0.08] bg-slate-900/60 backdrop-blur-2xl shadow-[0_32px_64px_-16px_rgba(0,0,0,0.4)] rounded-3xl overflow-hidden transition-all duration-300">
+        <CardHeader className="text-center space-y-6 pt-10 pb-6 px-8">
+          <div className="mx-auto w-14 h-14 rounded-2xl bg-gradient-to-tr from-purple-500 to-indigo-500 flex items-center justify-center shadow-[0_8px_20px_rgba(168,85,247,0.3)] border border-purple-400/20">
+            <Coins className="text-white w-7 h-7" />
           </div>
-          <div className="space-y-1">
-            <CardTitle className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">Đăng ký tham gia</CardTitle>
-            <CardDescription>Nhập đầy đủ thông tin để tham gia Dây Hụi</CardDescription>
+          <div className="space-y-2">
+            <CardTitle className="text-2xl font-semibold tracking-tight text-white">Đăng ký thành viên</CardTitle>
+            <CardDescription className="text-slate-400 text-sm">Điền thông tin của bạn để bắt đầu tham gia Dây Hụi</CardDescription>
           </div>
         </CardHeader>
+        
         <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4 pb-4">
+          <CardContent className="space-y-5 px-8 pb-4">
             {error && (
-              <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg border border-red-100 text-center">
+              <div className="bg-red-500/10 text-red-400 text-xs p-3.5 rounded-xl border border-red-500/20 text-center font-medium animate-in fade-in slide-in-from-top-1 duration-200">
                 {error}
               </div>
             )}
+            
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="fullName">Họ và Tên</Label>
-                <Input id="fullName" name="fullName" placeholder="Nguyễn Văn A" required className="bg-white" />
+                <Label htmlFor="fullName" className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Họ và Tên</Label>
+                <div className="relative">
+                  <Input 
+                    id="fullName" 
+                    name="fullName" 
+                    placeholder="Nguyễn Văn A" 
+                    required 
+                    className="bg-slate-950/40 border-white/[0.08] text-white placeholder:text-slate-500 rounded-xl h-11 pl-10 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all duration-200" 
+                  />
+                  <User className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-500" />
+                </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="phone">Số điện thoại</Label>
-                <Input id="phone" name="phone" type="tel" placeholder="0901234567" required className="bg-white" />
+                <Label htmlFor="phone" className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Số điện thoại</Label>
+                <div className="relative">
+                  <Input 
+                    id="phone" 
+                    name="phone" 
+                    type="tel" 
+                    placeholder="0901234567" 
+                    required 
+                    className="bg-slate-950/40 border-white/[0.08] text-white placeholder:text-slate-500 rounded-xl h-11 pl-10 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all duration-200" 
+                  />
+                  <Phone className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-500" />
+                </div>
               </div>
             </div>
             
-
-
             <div className="space-y-2">
-              <Label>Ngân hàng nhận tiền hốt hụi</Label>
-              <Select value={bankName} onValueChange={(v) => setBankName(v || "")}>
-                <SelectTrigger className="bg-white">
-                  <SelectValue placeholder="Chọn ngân hàng" />
-                </SelectTrigger>
-                <SelectContent>
-                  {banks.map(b => (
-                    <SelectItem key={b} value={b}>{b}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Ngân hàng nhận tiền hốt hụi</Label>
+              <div className="relative">
+                <Select value={bankName} onValueChange={(v) => setBankName(v || "")}>
+                  <SelectTrigger className="bg-slate-950/40 border-white/[0.08] text-white rounded-xl h-11 pl-10 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all duration-200 text-left">
+                    <SelectValue placeholder="Chọn ngân hàng" className="text-slate-500" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-900 border-white/[0.08] text-white rounded-xl">
+                    {banks.map(b => (
+                      <SelectItem key={b} value={b} className="focus:bg-slate-800 focus:text-white rounded-lg">{b}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Landmark className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-500 z-10" />
+              </div>
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="bankAccountNumber">Số tài khoản</Label>
-              <Input id="bankAccountNumber" name="bankAccountNumber" placeholder="Nhập số tài khoản" className="bg-white" />
+              <Label htmlFor="bankAccountNumber" className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Số tài khoản</Label>
+              <div className="relative">
+                <Input 
+                  id="bankAccountNumber" 
+                  name="bankAccountNumber" 
+                  placeholder="Nhập số tài khoản ngân hàng của bạn" 
+                  className="bg-slate-950/40 border-white/[0.08] text-white placeholder:text-slate-500 rounded-xl h-11 pl-10 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/50 transition-all duration-200" 
+                />
+                <CreditCard className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-500" />
+              </div>
             </div>
           </CardContent>
-          <CardFooter className="flex flex-col space-y-4">
-            <Button type="submit" className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700" disabled={loading}>
-              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Tạo Tài Khoản"}
+          
+          <CardFooter className="flex flex-col space-y-4 px-8 pb-10">
+            <Button 
+              type="submit" 
+              className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl h-11 font-medium transition-all duration-200 active:scale-[0.98] shadow-[0_4px_16px_rgba(147,51,234,0.2)] disabled:opacity-60" 
+              disabled={loading}
+            >
+              {loading ? (
+                <div className="flex items-center justify-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Đang xử lý...</span>
+                </div>
+              ) : "Đăng ký ngay"}
             </Button>
-            <div className="text-sm text-center text-muted-foreground">
+            
+            <div className="text-xs text-center text-slate-500 font-medium">
               Đã có tài khoản?{" "}
-              <Link href="/login" className="text-indigo-600 hover:underline font-semibold">
+              <Link href="/login" className="text-purple-400 hover:text-purple-300 hover:underline transition-colors duration-200">
                 Đăng nhập
               </Link>
             </div>

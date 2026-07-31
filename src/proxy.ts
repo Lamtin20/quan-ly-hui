@@ -5,7 +5,7 @@ import { jwtVerify } from 'jose'
 const secretKey = process.env.JWT_SECRET || "super-secret-hui-key-2026-very-secure-must-be-long-enough"
 const key = new TextEncoder().encode(secretKey)
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   
   if (pathname === '/login' || pathname === '/register') {

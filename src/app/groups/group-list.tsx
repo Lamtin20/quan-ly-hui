@@ -68,7 +68,7 @@ export function GroupList({
         name: formData.name,
         amount: parseFloat(formData.amount),
         cycle: formData.cycle,
-        biddingDays: formData.cycle === "CUSTOM" ? formData.biddingDays : undefined,
+        biddingDays: formData.cycle === "MONTHLY_5_20" ? "5, 20" : (formData.cycle === "CUSTOM" ? formData.biddingDays : undefined),
         isPublic: formData.isPublic,
         maxBidPercentage: parseFloat(formData.maxBidPercentage),
         startDate: new Date(formData.startDate),
@@ -149,7 +149,8 @@ export function GroupList({
                           <SelectItem value="DAILY">Hàng Ngày (Hụi Ngày)</SelectItem>
                           <SelectItem value="WEEKLY">Hàng Tuần (Hụi Tuần)</SelectItem>
                           <SelectItem value="MONTHLY">Hàng Tháng (Hụi Tháng)</SelectItem>
-                          <SelectItem value="CUSTOM">Chọn ngày trong tháng (VD: Ngày 5 và 20)</SelectItem>
+                          <SelectItem value="MONTHLY_5_20">Ngày 5 & 20 Hàng Tháng (2 kỳ/tháng)</SelectItem>
+                          <SelectItem value="CUSTOM">Chọn ngày trong tháng tùy chỉnh</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

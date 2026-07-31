@@ -7,8 +7,9 @@ import { hasPassedJoinDeadline, getJoinDeadlineDate, formatDate } from "@/lib/ut
 
 // Helper function to calculate session dates based on cycle and custom days
 function calculateSessionDates(startDate: Date, cycle: string, customDaysStr: string, count: number): Date[] {
-  if (cycle === "CUSTOM") {
-    const days = customDaysStr.split(",").map(d => parseInt(d.trim())).filter(d => !isNaN(d) && d >= 1 && d <= 31).sort((a, b) => a - b)
+  if (cycle === "CUSTOM" || cycle === "MONTHLY_5_20") {
+    const daysStr = cycle === "MONTHLY_5_20" ? "5,20" : customDaysStr
+    const days = daysStr.split(",").map(d => parseInt(d.trim())).filter(d => !isNaN(d) && d >= 1 && d <= 31).sort((a, b) => a - b)
     if (days.length > 0) {
       const dates: Date[] = []
       let currentYear = startDate.getFullYear()

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { User, HuiGroup, HuiMember, HuiSession, Payment } from "@prisma/client"
 import { startNewSession } from "../../actions/sessions"
 import { startHuiGroup, joinHuiGroup } from "../../actions/groups"
@@ -44,6 +44,14 @@ export function GroupDetail({
   const [isStarting, setIsStarting] = useState(false)
   const [isActivating, setIsActivating] = useState(false)
   const [isJoining, setIsJoining] = useState(false)
+
+  // Real-time polling for updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      router.refresh()
+    }, 4000)
+    return () => clearInterval(interval)
+  }, [router])
   
   const isMember = initialGroup.huiMembers.some(hm => hm.userId === currentUser.id)
   

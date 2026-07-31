@@ -42,6 +42,9 @@ export async function submitBid(sessionId: string, amount: number, isWhiteTicket
     }
   })
 
+  // Tự động đóng kỳ hụi nếu tất cả thành viên sống đã bỏ thăm xong
+  await autoCloseIfAllBidded(sessionId)
+
   revalidatePath("/", "layout")
 }
 
@@ -199,4 +202,46 @@ async function finalizeSession(sessionId: string, winnerUserId: string, bidAmoun
       })
     }
   })
+}
+
+export async function autoCloseIfAllBidded(sessionId: string) {
+  const session = await prisma.huiSession.findUnique({
+    where: { id: sessionId },
+    include: { bids: true, huiGroup: { include: { huiMembers: true } } }
+  })
+  if (!session || session.status !== "BIDDING") return
+
+  const previousSessions = await prisma.huiSession.findMany({
+    where: { huiGroupId: session.huiGroupId, status: "DONE" },
+    select: { winnerUserId: true }
+  })
+  const deadIds = previousSessions.map(s => s.winnerUserId).filter(Boolean) as string[]
+
+  const livingUserIds = session.huiGroup.huiMembers
+    .map(hm => hm.userId)
+    .filter(id => !deadIds.includes(id))
+
+  const biddedLivingUserIds = session.bids
+    .filter(b => livingUserIds.includes(b.userId))
+    .map(b => b.userId)
+
+  const allLivingHaveBidded = livingUserIds.every(id => biddedLivingUserIds.includes(id))
+  if (allLivingHaveBidded && livingUserIds.length > 0) {
+    const validBids = session.bids.filter(b => livingUserIds.includes(b.userId))
+    const maxAmount = Math.max(...validBids.map(b => b.amount))
+    const topBids = validBids.filter(b => b.amount === maxAmount)
+    
+    if (topBids.length === 1) {
+      await finalizeSession(sessionId, topBids[0].userId, maxAmount)
+    } else {
+      const tiedUserIds = topBids.map(b => b.userId)
+      await prisma.huiSession.update({
+        where: { id: sessionId },
+        data: {
+          status: "TIE_BREAKER",
+          tieBreakerData: { tiedUserIds, selected: {} }
+        }
+      })
+    }
+  }
 }

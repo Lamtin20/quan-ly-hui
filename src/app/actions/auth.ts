@@ -68,3 +68,53 @@ export async function logoutAction() {
   }
   redirect("/login")
 }
+
+export async function updateProfileAction(formData: FormData) {
+  try {
+    const { getUser } = await import("@/lib/server-auth")
+    const currentUser = await getUser()
+    if (!currentUser) return { error: "Bạn chưa đăng nhập" }
+
+    const fullName = formData.get("fullName") as string
+    const avatar = formData.get("avatar") as string
+    const bankName = formData.get("bankName") as string
+    const bankAccountNumber = formData.get("bankAccountNumber") as string
+
+    if (!fullName) return { error: "Họ tên không được để trống" }
+
+    await prisma.user.update({
+      where: { id: currentUser.id },
+      data: {
+        fullName,
+        avatar: avatar || null,
+        bankName: bankName || null,
+        bankAccountNumber: bankAccountNumber || null
+      }
+    })
+
+    const { revalidatePath } = await import("next/cache")
+    revalidatePath("/", "layout")
+    return { success: true }
+  } catch (err: any) {
+    console.error("Lỗi cập nhật hồ sơ:", err)
+    return { error: "Đã xảy ra lỗi khi cập nhật thông tin." }
+  }
+}
+
+export async function updateUserRoleAction(targetUserId: string, newRole: "ADMIN" | "MEMBER") {
+  const { getUser } = await import("@/lib/server-auth")
+  const user = await getUser()
+  if (!user || user.role !== "ADMIN") throw new Error("Chỉ Admin mới có quyền thay đổi vai trò người dùng")
+  
+  if (user.id === targetUserId) throw new Error("Bạn không thể tự hạ quyền của chính mình")
+
+  await prisma.user.update({
+    where: { id: targetUserId },
+    data: { role: newRole }
+  })
+
+  const { revalidatePath } = await import("next/cache")
+  revalidatePath("/", "layout")
+}
+
+

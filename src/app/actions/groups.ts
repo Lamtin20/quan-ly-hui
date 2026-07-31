@@ -181,3 +181,41 @@ export async function deleteHuiGroup(id: string) {
   })
   revalidatePath("/", "layout")
 }
+
+export async function findHuiGroupById(groupId: string) {
+  if (!groupId || groupId.length !== 24) return null
+  try {
+    const group = await prisma.huiGroup.findUnique({
+      where: { id: groupId },
+      include: {
+        huiMembers: true,
+        _count: {
+          select: { huiMembers: true, sessions: true }
+        }
+      }
+    })
+    return group
+  } catch (error) {
+    return null
+  }
+}
+
+export async function getHuiGroups() {
+  const user = await requireUser()
+  const isAdmin = user.role === "ADMIN"
+  return await prisma.huiGroup.findMany({
+    where: isAdmin ? {} : {
+      OR: [
+        { huiMembers: { some: { userId: user.id } } },
+        { isPublic: true }
+      ]
+    },
+    include: {
+      huiMembers: true,
+      _count: {
+        select: { huiMembers: true, sessions: true }
+      }
+    },
+    orderBy: { createdAt: "desc" }
+  })
+}

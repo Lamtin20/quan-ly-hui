@@ -16,6 +16,7 @@ model User {
   password          String       // Hashed password
   fullName          String
   role              String       @default("MEMBER") // Role: ADMIN, MEMBER
+  avatar            String?      // Biểu tượng mặt người / emoji đại diện
   address           String?
   note              String?
   bankName          String?      // Tên ngân hàng

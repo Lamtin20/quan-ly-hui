@@ -6,8 +6,10 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { headers } from "next/headers";
 import { BottomNav } from "@/components/bottom-nav";
-import { UserCircle } from "lucide-react";
-import Link from "next/link";
+import NextTopLoader from "nextjs-toploader";
+import { prisma } from "@/lib/prisma";
+import { UserHeaderMenu } from "@/components/user-header-menu";
+import { PWARegister } from "@/components/pwa-register";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -17,7 +19,14 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Hệ thống Quản lý Dây Hụi",
   description: "Phần mềm quản lý dây hụi chuyên nghiệp",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Hụi Manager"
+  }
 };
+
 
 export default async function RootLayout({
   children,
@@ -28,11 +37,17 @@ export default async function RootLayout({
   const userId = reqHeaders.get("x-user-id")
   const role = reqHeaders.get("x-user-role")
 
+  const user = userId ? await prisma.user.findUnique({
+    where: { id: userId }
+  }) : null
+
   // Nếu không đăng nhập (đang ở trang Login/Register)
-  if (!userId) {
+  if (!userId || !user) {
     return (
       <html lang="vi">
         <body className={`${inter.variable} font-sans antialiased`}>
+          <NextTopLoader color="#6366f1" showSpinner={false} />
+          <PWARegister />
           {children}
         </body>
       </html>
@@ -44,6 +59,8 @@ export default async function RootLayout({
       <body
         className={`${inter.variable} font-sans antialiased min-h-screen bg-slate-50 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-100 via-white to-slate-50 text-foreground pb-16 md:pb-0`}
       >
+        <NextTopLoader color="#6366f1" showSpinner={false} />
+        <PWARegister />
         <TooltipProvider>
           <SidebarProvider>
             {/* Sidebar cho Desktop */}
@@ -61,14 +78,7 @@ export default async function RootLayout({
                 </div>
                 
                 {/* Thông tin User Header */}
-                <div className="flex items-center gap-2">
-                  <div className="text-xs md:text-sm font-medium text-slate-600">
-                    {role === "ADMIN" ? "👑 Admin" : "👤 Thành viên"}
-                  </div>
-                  <Link href="/login" className="p-2 rounded-full hover:bg-slate-100 text-slate-600">
-                    <UserCircle className="w-5 h-5" />
-                  </Link>
-                </div>
+                <UserHeaderMenu user={user} />
               </div>
 
               <div className="p-4 md:p-6 max-w-7xl mx-auto">

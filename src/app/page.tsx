@@ -4,10 +4,25 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Users, CircleDollarSign, TrendingUp, Activity } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
+import { redirect } from "next/navigation"
 
 export default async function DashboardPage() {
   const user = await requireUser()
   const isAdmin = user.role === "ADMIN"
+
+  if (!isAdmin) {
+    const activeMemberGroup = await prisma.huiGroup.findFirst({
+      where: {
+        status: { in: ["RUNNING", "OPEN"] },
+        huiMembers: { some: { userId: user.id } }
+      },
+      orderBy: { createdAt: "desc" }
+    })
+    
+    if (activeMemberGroup) {
+      redirect(`/groups/${activeMemberGroup.id}`)
+    }
+  }
 
   const membersCount = await prisma.user.count()
   

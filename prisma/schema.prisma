@@ -6,13 +6,12 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
 }
 
 model User {
-  id        String   @id @default(cuid())
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
   name      String
   phone     String   @unique
   role      String   @default("ADMIN") // Role: ADMIN, MEMBER
@@ -20,7 +19,7 @@ model User {
 }
 
 model Member {
-  id                String       @id @default(cuid())
+  id                String       @id @default(auto()) @map("_id") @db.ObjectId
   fullName          String
   phone             String
   address           String?
@@ -33,7 +32,7 @@ model Member {
 }
 
 model HuiGroup {
-  id               String       @id @default(cuid())
+  id               String       @id @default(auto()) @map("_id") @db.ObjectId
   name             String
   amount           Float        // Mệnh giá hụi
   cycle            String       @default("MONTHLY") // Cycle: DAILY, WEEKLY, MONTHLY, CUSTOM...
@@ -47,21 +46,21 @@ model HuiGroup {
 }
 
 model HuiMember {
-  id         String   @id @default(cuid())
-  huiGroupId String
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  huiGroupId String   @db.ObjectId
   huiGroup   HuiGroup @relation(fields: [huiGroupId], references: [id], onDelete: Cascade)
-  memberId   String
+  memberId   String   @db.ObjectId
   member     Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
   slots      Int      @default(1)
 }
 
 model HuiSession {
-  id                   String    @id @default(cuid())
-  huiGroupId           String
+  id                   String    @id @default(auto()) @map("_id") @db.ObjectId
+  huiGroupId           String    @db.ObjectId
   huiGroup             HuiGroup  @relation(fields: [huiGroupId], references: [id], onDelete: Cascade)
   sessionNumber        Int
   openDate             DateTime  @default(now())
-  winnerMemberId       String?
+  winnerMemberId       String?   @db.ObjectId
   bidAmount            Float     @default(0) // Giá bỏ thăm
   winnerReceivedAmount Float     @default(0) // Thực nhận
   status               String    @default("PENDING") // SessionStatus: PENDING, DONE
@@ -69,10 +68,10 @@ model HuiSession {
 }
 
 model Payment {
-  id          String     @id @default(cuid())
-  sessionId   String
+  id          String     @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId   String     @db.ObjectId
   session     HuiSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  memberId    String
+  memberId    String     @db.ObjectId
   member      Member     @relation(fields: [memberId], references: [id], onDelete: Cascade)
   isDead      Boolean    @default(false) // Hụi chết/sống
   amountToPay Float

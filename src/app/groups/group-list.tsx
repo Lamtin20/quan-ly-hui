@@ -100,7 +100,7 @@ export function GroupList({
                     </div>
                     <div className="grid gap-2">
                       <Label>Chu kỳ mở hụi</Label>
-                      <Select value={formData.cycle} onValueChange={(v) => setFormData({...formData, cycle: v})}>
+                      <Select value={formData.cycle} onValueChange={(v) => setFormData({...formData, cycle: v || ""})}>
                         <SelectTrigger>
                           <SelectValue placeholder="Chọn chu kỳ" />
                         </SelectTrigger>

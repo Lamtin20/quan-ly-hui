@@ -65,7 +65,7 @@ export function MemberList({ initialMembers }: { initialMembers: Member[] }) {
                   </div>
                   <div className="grid gap-2">
                     <Label>Ngân hàng (Để nhận tiền hốt hụi)</Label>
-                    <Select value={formData.bankName} onValueChange={(v) => setFormData({...formData, bankName: v})}>
+                    <Select value={formData.bankName} onValueChange={(v) => setFormData({...formData, bankName: v || ""})}>
                       <SelectTrigger>
                         <SelectValue placeholder="Chọn ngân hàng" />
                       </SelectTrigger>

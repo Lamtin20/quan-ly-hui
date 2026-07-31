@@ -107,7 +107,7 @@ export function GroupDetail({ initialGroup }: { initialGroup: FullGroup }) {
                   
                   <div className="grid gap-2">
                     <Label>Người kêu trúng (Hốt hụi)</Label>
-                    <Select value={formData.winnerMemberId} onValueChange={(v: string) => setFormData({...formData, winnerMemberId: v})}>
+                    <Select value={formData.winnerMemberId} onValueChange={(v) => setFormData({...formData, winnerMemberId: v || ""})}>
                       <SelectTrigger>
                         <SelectValue placeholder="Chọn người thắng" />
                       </SelectTrigger>

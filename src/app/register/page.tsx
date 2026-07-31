@@ -63,10 +63,7 @@ export default function RegisterPage() {
               </div>
             </div>
             
-            <div className="space-y-2">
-              <Label htmlFor="password">Mật khẩu</Label>
-              <Input id="password" name="password" type="password" placeholder="Tạo mật khẩu đăng nhập" required className="bg-white" />
-            </div>
+
 
             <div className="space-y-2">
               <Label>Ngân hàng nhận tiền hốt hụi</Label>

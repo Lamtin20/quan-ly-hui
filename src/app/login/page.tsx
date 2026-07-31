@@ -50,10 +50,6 @@ export default function LoginPage() {
               <Label htmlFor="phone">Số điện thoại</Label>
               <Input id="phone" name="phone" type="tel" placeholder="0901234567" required className="bg-white" />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Mật khẩu</Label>
-              <Input id="password" name="password" type="password" placeholder="••••••••" required className="bg-white" />
-            </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
             <Button type="submit" className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700" disabled={loading}>

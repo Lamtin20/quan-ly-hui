@@ -705,7 +705,7 @@ export function BiddingArena({
 
       {/* Victory Celebration Modal */}
       <Dialog open={showWinnerPopup} onOpenChange={setShowWinnerPopup}>
-        <DialogContent className="max-w-md rounded-3xl border border-amber-200 p-5 sm:p-8 bg-amber-50 text-center shadow-2xl relative overflow-y-auto max-h-[85vh] sm:max-h-none">
+        <DialogContent className="max-w-md rounded-3xl border border-amber-200 p-5 sm:p-8 bg-amber-50 text-center shadow-2xl overflow-y-auto max-h-[85vh] sm:max-h-none">
           {/* Confetti decoration */}
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-amber-200/20 via-transparent to-transparent pointer-events-none" />
           

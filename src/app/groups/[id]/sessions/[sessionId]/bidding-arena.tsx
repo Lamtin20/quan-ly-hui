@@ -45,6 +45,18 @@ export function BiddingArena({
   // State for Victory Popup
   const [showWinnerPopup, setShowWinnerPopup] = useState(false)
 
+  // Tie-breaker ball selection state
+  const [selectedBallIndex, setSelectedBallIndex] = useState<number | null>(null)
+  
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(`tie-breaker-ball-${session.id}-${currentUser.id}`)
+      if (saved !== null) {
+        setSelectedBallIndex(parseInt(saved, 10))
+      }
+    }
+  }, [session.id, currentUser.id])
+
   const isAdmin = currentUser.role === "ADMIN"
   const isLiving = !deadIds.includes(currentUser.id)
   const myBid = session.bids.find((b: any) => b.userId === currentUser.id)
@@ -100,7 +112,11 @@ export function BiddingArena({
     }
   }
 
-  const handlePickSphere = async () => {
+  const handlePickSphere = async (index: number) => {
+    setSelectedBallIndex(index)
+    if (typeof window !== "undefined") {
+      localStorage.setItem(`tie-breaker-ball-${session.id}-${currentUser.id}`, index.toString())
+    }
     setSphereLoading(true)
     try {
       await pickSphere(session.id)
@@ -296,64 +312,163 @@ export function BiddingArena({
     const amIInvolved = data.tiedUserIds.includes(currentUser.id)
     const haveIPicked = amIInvolved && data.selected[currentUser.id]
 
+    // List of colors for glossy lottery balls
+    const BALL_GRADIENTS = [
+      "from-amber-400 via-amber-500 to-orange-600 shadow-orange-500/30",
+      "from-blue-400 via-blue-500 to-indigo-600 shadow-blue-500/30",
+      "from-emerald-400 via-emerald-500 to-teal-600 shadow-emerald-500/30",
+      "from-rose-400 via-rose-500 to-pink-600 shadow-rose-500/30",
+      "from-purple-400 via-purple-500 to-violet-600 shadow-purple-500/30",
+      "from-cyan-400 via-cyan-500 to-blue-600 shadow-cyan-500/30",
+      "from-orange-400 via-orange-500 to-red-600 shadow-orange-500/30",
+      "from-fuchsia-400 via-fuchsia-500 to-purple-600 shadow-fuchsia-500/30",
+    ]
+
     return (
-      <div className="flex flex-col items-center py-8 px-4 space-y-8 bg-white/80 backdrop-blur-md rounded-3xl border border-indigo-100/60 shadow-lg">
-        <div className="text-center space-y-2 max-w-md">
-          <Badge className="bg-orange-50 text-orange-600 border border-orange-100 font-bold px-3 py-1 rounded-full flex items-center gap-1.5 mx-auto w-max">
-            <Zap className="w-3.5 h-3.5 text-orange-500 animate-pulse" /> Vòng Bốc Thăm May Mắn!
-          </Badge>
-          <h2 className="text-2xl font-black text-slate-800">
-            Trùng giá kêu cao nhất!
-          </h2>
-          <p className="text-slate-500 text-xs leading-relaxed font-medium">
-            Có {data.tiedUserIds.length} người cùng kêu giá cao nhất. Mỗi người cần chọn 1 quả cầu, ai mở ra số điểm lớn nhất sẽ giành quyền hốt hụi!
-          </p>
-        </div>
+      <div className="space-y-6">
+        {/* Main card */}
+        <Card className="border-indigo-100/60 shadow-xl bg-white/95 rounded-3xl overflow-hidden">
+          <CardHeader className="text-center pb-2 bg-gradient-to-b from-indigo-50/30 to-transparent">
+            <div className="flex justify-center mb-2">
+              <Badge className="bg-orange-50 text-orange-600 border border-orange-100 font-bold px-3 py-1 rounded-full flex items-center gap-1.5 animate-bounce">
+                <Zap className="w-3.5 h-3.5 text-orange-500 animate-pulse" /> Vòng Bốc Thăm May Mắn!
+              </Badge>
+            </div>
+            <CardTitle className="text-2xl font-black text-slate-800">Trùng giá kêu cao nhất!</CardTitle>
+            <CardDescription className="text-xs max-w-md mx-auto leading-relaxed mt-1">
+              Có <span className="font-bold text-indigo-600">{data.tiedUserIds.length} thành viên</span> cùng kêu mức giá cao nhất. Mỗi người cần chọn 1 quả bóng may mắn, ai có số điểm cao nhất sẽ giành quyền hốt hụi kỳ này!
+            </CardDescription>
+          </CardHeader>
 
-        <div className="flex flex-wrap justify-center gap-6 pt-4">
-          <AnimatePresence>
-            {data.tiedUserIds.map((uid: string) => {
-              const u = session.bids.find((b:any)=>b.userId === uid)?.user
-              const num = data.selected[uid]
-              const isMe = uid === currentUser.id
+          <CardContent className="p-6 space-y-8">
+            {/* Active Drawing Board for involved users */}
+            {amIInvolved && (
+              <div className="p-6 bg-slate-50/50 rounded-3xl border border-slate-100 flex flex-col items-center space-y-6">
+                <h3 className="text-sm font-extrabold text-slate-700 tracking-wide uppercase text-center">
+                  {haveIPicked 
+                    ? "🎉 Bạn đã hoàn tất bốc thăm!" 
+                    : "👉 Chọn 1 quả bóng bên dưới để bốc điểm:"
+                  }
+                </h3>
 
-              return (
-                <motion.div 
-                  initial={{ scale: 0.8, opacity: 0 }} 
-                  animate={{ scale: 1, opacity: 1 }} 
-                  key={uid}
-                  className="flex flex-col items-center"
-                >
-                  <button 
-                    disabled={!isMe || haveIPicked || sphereLoading}
-                    onClick={handlePickSphere}
-                    className={`
-                      relative w-24 h-24 rounded-full flex items-center justify-center text-3xl font-black shadow-lg transition-all active:scale-[0.9] cursor-pointer
-                      ${num ? 'bg-gradient-to-br from-emerald-400 to-emerald-600 text-white border-2 border-white ring-4 ring-emerald-100' : 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white hover:scale-105 cursor-pointer ring-4 ring-indigo-50'}
-                      ${(!isMe && !num) && 'opacity-40 cursor-not-allowed'}
-                    `}
-                  >
-                    {num ? num : "?"}
-                    {sphereLoading && isMe && !num && <CircleDashed className="absolute w-8 h-8 animate-spin text-white" />}
-                  </button>
-                  <span className="mt-4 font-bold text-slate-700 text-sm flex items-center gap-1.5">
-                    {isMe ? "Bạn" : u?.fullName}
-                    {u?.avatar && (
-                      <span className="w-5 h-5 rounded-full overflow-hidden inline-flex items-center justify-center border text-[10px] bg-slate-100">
-                        {u.avatar.startsWith("data:image") ? (
-                          <img src={u.avatar} alt={u.fullName} className="w-full h-full object-cover" />
-                        ) : (
-                          u.avatar
+                <div className="grid grid-cols-4 gap-4 max-w-xs md:max-w-md">
+                  {Array.from({ length: 8 }).map((_, i) => {
+                    const isThisBallChosenByMe = selectedBallIndex === i
+                    const isRevealed = haveIPicked && isThisBallChosenByMe
+                    const score = isRevealed ? data.selected[currentUser.id] : null
+
+                    return (
+                      <motion.button
+                        key={i}
+                        disabled={sphereLoading || haveIPicked}
+                        onClick={() => handlePickSphere(i)}
+                        whileHover={!haveIPicked ? { scale: 1.15, y: -4, rotate: 6 } : {}}
+                        whileTap={!haveIPicked ? { scale: 0.95 } : {}}
+                        animate={
+                          sphereLoading && isThisBallChosenByMe
+                            ? {
+                                x: [0, -5, 5, -5, 5, -5, 5, 0],
+                                y: [0, -10, 0, -10, 0],
+                                rotate: [0, -15, 15, -15, 15, 0],
+                                transition: { repeat: Infinity, duration: 0.4 }
+                              }
+                            : {}
+                        }
+                        className={`
+                          relative w-16 h-16 md:w-20 md:h-20 rounded-full bg-gradient-to-br ${BALL_GRADIENTS[i % BALL_GRADIENTS.length]}
+                          flex items-center justify-center text-white shadow-md border border-white/20 select-none transition-all duration-300
+                          ${!haveIPicked ? "cursor-pointer hover:shadow-xl" : "cursor-default"}
+                          ${(haveIPicked && !isThisBallChosenByMe) ? "opacity-30 filter grayscale-[50%]" : ""}
+                        `}
+                      >
+                        {/* 3D Glossy highlighting reflection */}
+                        <div className="absolute top-1 left-2 w-5 h-2.5 bg-white/30 rounded-full blur-[0.5px]" />
+                        <div className="absolute bottom-1 right-2 w-3 h-3 bg-black/10 rounded-full blur-[1px]" />
+                        
+                        {/* Inner white circle showing the sphere number */}
+                        <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-white text-slate-800 font-black flex items-center justify-center shadow-inner border border-slate-100 text-sm md:text-base">
+                          {score ? score : "?"}
+                        </div>
+                        {sphereLoading && isThisBallChosenByMe && (
+                          <div className="absolute inset-0 rounded-full bg-black/20 flex items-center justify-center">
+                            <CircleDashed className="w-8 h-8 animate-spin text-white" />
+                          </div>
                         )}
-                      </span>
-                    )}
-                  </span>
-                  <span className="text-[10px] font-bold text-slate-400 mt-0.5">{num ? "Đã bốc điểm" : "Đang bốc..."}</span>
-                </motion.div>
-              )
-            })}
-          </AnimatePresence>
-        </div>
+                      </motion.button>
+                    )
+                  })}
+                </div>
+
+                {haveIPicked && (
+                  <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl text-center max-w-sm">
+                    <p className="text-xs font-bold text-emerald-800">
+                      Điểm số bạn bốc được là: <span className="text-xl font-black text-emerald-600 block mt-1">{data.selected[currentUser.id]} điểm</span>
+                    </p>
+                    <p className="text-[10px] text-emerald-600 font-semibold mt-1">Đang chờ các thành viên khác hoàn tất lượt bốc của họ...</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Spectator/Progress view for everyone */}
+            <div className="space-y-4">
+              <h3 className="text-xs font-bold text-slate-400 tracking-wider uppercase flex items-center gap-2">
+                <Users className="w-4 h-4 text-indigo-500" /> Bảng Theo Dõi Bốc Thăm ({Object.keys(data.selected).length}/{data.tiedUserIds.length})
+              </h3>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                {data.tiedUserIds.map((uid: string) => {
+                  const u = session.bids.find((b: any) => b.userId === uid)?.user
+                  const num = data.selected[uid]
+                  const isMe = uid === currentUser.id
+
+                  return (
+                    <div 
+                      key={uid} 
+                      className={`p-4 rounded-2xl border transition-all flex items-center justify-between bg-white shadow-sm
+                        ${isMe ? "border-indigo-200 bg-indigo-50/20" : "border-slate-100"}
+                      `}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center border bg-slate-50">
+                          {u?.avatar && u.avatar.startsWith("data:image") ? (
+                            <img src={u.avatar} alt={u.fullName} className="w-full h-full object-cover" />
+                          ) : (
+                            u?.avatar || "👤"
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
+                            {u?.fullName}
+                            {isMe && <Badge className="bg-indigo-600 text-white text-[9px] font-bold px-1.5 py-0 rounded">Bạn</Badge>}
+                          </p>
+                          <p className="text-[10px] text-slate-400 font-medium">Kêu giá: {formatVND(session.bids.find((b: any) => b.userId === uid)?.amount || 0)}</p>
+                        </div>
+                      </div>
+
+                      <div>
+                        {num ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-emerald-600 font-bold">Đã bốc:</span>
+                            {/* Small 3D glossy mini-ball */}
+                            <div className="relative w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 text-white flex items-center justify-center font-black text-xs shadow-md border border-white/20 select-none">
+                              <div className="absolute top-0.5 left-1 w-2.5 h-1.5 bg-white/35 rounded-full blur-[0.5px]" />
+                              {num}
+                            </div>
+                          </div>
+                        ) : (
+                          <Badge variant="outline" className="text-slate-400 border-dashed rounded-xl px-2.5 py-1 text-[10px] font-semibold flex items-center gap-1">
+                            <CircleDashed className="w-3.5 h-3.5 animate-spin" /> Đang bốc...
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     )
   }

@@ -107,6 +107,47 @@ export function GroupDetail({
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount)
   }
 
+  const getMemberMetrics = (userId: string) => {
+    let totalPaid = 0
+    let totalReceived = 0
+    
+    initialGroup.sessions.forEach(s => {
+      if (s.status === "DONE") {
+        const payment = s.payments.find(p => p.userId === userId)
+        if (payment) {
+          totalPaid += payment.amountToPay
+        }
+      }
+    })
+
+    const wonSession = initialGroup.sessions.find(s => s.status === "DONE" && s.winnerUserId === userId)
+    if (wonSession) {
+      totalReceived = wonSession.winnerReceivedAmount || 0
+    }
+
+    const netBalance = totalReceived - totalPaid
+
+    let expectedProfit = 0
+    const totalSlots = initialGroup.totalSlots
+    const slotAmount = initialGroup.amount
+
+    if (wonSession) {
+      const completedSessionsCount = initialGroup.sessions.filter(s => s.status === "DONE").length
+      const remainingSessionsCount = Math.max(0, totalSlots - completedSessionsCount)
+      const futurePayments = slotAmount * remainingSessionsCount
+      const totalCost = totalPaid + futurePayments
+      expectedProfit = totalReceived - totalCost
+    } else {
+      initialGroup.sessions.forEach(s => {
+        if (s.status === "DONE") {
+          expectedProfit += s.bidAmount || 0
+        }
+      })
+    }
+
+    return { totalPaid, totalReceived, netBalance, expectedProfit, wonSession }
+  }
+
   const getWinnerInfo = (userId: string | null) => {
     if (!userId) return null
     return initialGroup.huiMembers.find(hm => hm.userId === userId)?.user
@@ -242,6 +283,37 @@ export function GroupDetail({
         </Card>
       </div>
 
+      {/* Progress Timeline Card */}
+      {initialGroup.status !== "OPEN" && initialGroup.sessions.length > 0 && (
+        <Card className="border border-indigo-100 bg-white shadow-md rounded-2xl p-5">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                <span>📊 Tiến Độ Dây Hụi</span>
+                <Badge className="bg-indigo-50 text-indigo-700 border border-indigo-150 font-black rounded-lg px-2 text-[10px]">
+                  Kỳ {initialGroup.sessions.filter(s => s.status === "DONE").length}/{initialGroup.totalSlots}
+                </Badge>
+              </h3>
+              <p className="text-xs text-slate-500 font-semibold mt-1">
+                Đã hoàn thành {initialGroup.sessions.filter(s => s.status === "DONE").length} kỳ khui hụi trên tổng số {initialGroup.totalSlots} kỳ.
+              </p>
+            </div>
+            <div className="w-full md:max-w-xs space-y-1">
+              <div className="flex justify-between text-xs font-bold text-slate-650">
+                <span>Hoàn tất</span>
+                <span>{Math.round((initialGroup.sessions.filter(s => s.status === "DONE").length / initialGroup.totalSlots) * 100)}%</span>
+              </div>
+              <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-indigo-500 to-purple-600 transition-all duration-500" 
+                  style={{ width: `${Math.round((initialGroup.sessions.filter(s => s.status === "DONE").length / initialGroup.totalSlots) * 100)}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Layout Grid: Members list & Sessions status */}
       <div className="grid gap-6 md:grid-cols-3">
         
@@ -254,31 +326,73 @@ export function GroupDetail({
                 Thành Viên Dây Hụi ({initialGroup.huiMembers.length})
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-4 space-y-3 max-h-[450px] overflow-y-auto">
+            <CardContent className="p-4 space-y-3 max-h-[500px] overflow-y-auto">
               {initialGroup.huiMembers.map((member) => {
-                // Find if this member won a completed session
-                const wonSession = initialGroup.sessions.find(s => s.status === "DONE" && s.winnerUserId === member.userId)
+                const metrics = getMemberMetrics(member.userId)
+                const u = member.user
+                const userAvatar = u.avatar || "👤"
                 
                 return (
-                  <div key={member.id} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:bg-slate-50/50 transition-colors">
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-xs font-bold text-slate-800">{member.user.fullName}</span>
-                      <span className="text-[10px] text-slate-500 font-medium">{member.user.phone}</span>
-                    </div>
-                    <div>
-                      {wonSession ? (
-                        <div className="flex flex-col items-end">
-                          <Badge className="bg-rose-50 text-rose-700 hover:bg-rose-50 border border-rose-200 text-[10px] rounded-lg shadow-none font-bold">
-                            Hụi Chết
-                          </Badge>
-                          <span className="text-[9px] text-slate-400 mt-1 font-semibold">Kỳ {wonSession.sessionNumber}</span>
+                  <div 
+                    key={member.id} 
+                    className={`p-3 rounded-2xl border transition-all flex flex-col gap-3 bg-white
+                      ${metrics.wonSession ? "border-slate-100 bg-slate-50/20" : "border-indigo-50 bg-indigo-50/5"}
+                    `}
+                  >
+                    {/* Top part: Avatar, Name, Badge */}
+                    <div className="flex items-center justify-between gap-2.5">
+                      <div className="flex items-center gap-2.5">
+                        {/* 3D Ring around Avatar based on Live/Dead */}
+                        <div className={`relative w-9 h-9 rounded-full flex items-center justify-center text-sm shadow-sm overflow-hidden flex-shrink-0 border-2
+                          ${metrics.wonSession 
+                            ? "ring-2 ring-slate-100 border-slate-300 opacity-80" 
+                            : "ring-2 ring-emerald-500/20 border-emerald-450 animate-pulse-slow"}
+                        `}>
+                          {userAvatar.startsWith("data:image") ? (
+                            <img src={userAvatar} alt={u.fullName} className="w-full h-full object-cover" />
+                          ) : (
+                            userAvatar
+                          )}
                         </div>
-                      ) : (
-                        <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50 border border-emerald-200 text-[10px] rounded-lg shadow-none font-bold">
-                          Hụi Sống
-                        </Badge>
-                      )}
+                        <div className="flex flex-col">
+                          <span className="text-xs font-bold text-slate-800 truncate max-w-[120px]">{u.fullName}</span>
+                          <span className="text-[9px] text-slate-400 font-mono mt-0.5">{u.phone}</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        {metrics.wonSession ? (
+                          <div className="flex flex-col items-end">
+                            <Badge className="bg-rose-50 text-rose-700 hover:bg-rose-50 border border-rose-150 text-[8px] font-extrabold px-1.5 py-0.5 rounded shadow-none">
+                              Hụi Chết
+                            </Badge>
+                            <span className="text-[8px] text-slate-400 font-bold mt-0.5">Kỳ {metrics.wonSession.sessionNumber}</span>
+                          </div>
+                        ) : (
+                          <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50 border border-emerald-150 text-[8px] font-extrabold px-1.5 py-0.5 rounded shadow-none">
+                            Hụi Sống
+                          </Badge>
+                        )}
+                      </div>
                     </div>
+
+                    {/* Member balance details & expected profits */}
+                    {initialGroup.status !== "OPEN" && (
+                      <div className="pt-2 border-t border-slate-100/80 grid grid-cols-2 gap-2 text-[9px] font-semibold text-slate-500">
+                        <div>
+                          <span className="text-slate-400 block font-bold uppercase tracking-wider text-[7.5px]">Đã tích lũy</span>
+                          <span className="font-extrabold text-slate-700 text-[10px]">{formatVND(metrics.totalPaid)}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-slate-400 block font-bold uppercase tracking-wider text-[7.5px]">
+                            {metrics.wonSession ? "Thực nhận hốt" : "Lợi dự kiến"}
+                          </span>
+                          <span className={`font-extrabold text-[10px] ${metrics.wonSession ? "text-indigo-650" : "text-emerald-650"}`}>
+                            {formatVND(metrics.wonSession ? metrics.totalReceived : metrics.expectedProfit)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )
               })}

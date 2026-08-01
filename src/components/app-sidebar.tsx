@@ -67,7 +67,7 @@ export function AppSidebar() {
                 const isActive = item.url === "/" ? pathname === "/" : pathname.startsWith(item.url)
                 return (
                   <SidebarMenuItem key={item.title}>
-                    <Link href={item.url} className="w-full block">
+                    <Link href={item.url} prefetch={true} className="w-full block">
                       <SidebarMenuButton tooltip={item.title} isActive={isActive}>
                         <item.icon className={isActive ? "text-primary" : ""} />
                         <span className={isActive ? "font-semibold text-primary" : ""}>{item.title}</span>
@@ -83,7 +83,7 @@ export function AppSidebar() {
       <SidebarFooter className="border-t p-4">
         <SidebarMenu>
           <SidebarMenuItem>
-            <Link href="/settings" className="w-full block">
+            <Link href="/settings" prefetch={true} className="w-full block">
               <SidebarMenuButton tooltip="Cài đặt">
                 <Settings />
                 <span>Cài đặt</span>

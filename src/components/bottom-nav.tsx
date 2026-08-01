@@ -27,6 +27,7 @@ export function BottomNav() {
             <Link
               key={item.title}
               href={item.url}
+              prefetch={true}
               className="relative flex flex-col items-center justify-center w-full h-full space-y-1 transition-transform duration-200 active:scale-95"
             >
               {isActive && !isSpecial && (

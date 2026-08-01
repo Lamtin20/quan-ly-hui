@@ -69,11 +69,16 @@ export default async function RootLayout({
             </div>
 
             <main className="w-full h-screen overflow-y-auto">
-              <div className="sticky top-0 z-10 flex h-14 items-center justify-between gap-4 border-b border-indigo-100 bg-white/70 px-4 backdrop-blur-md shadow-sm">
+              <div className="sticky top-0 z-10 flex h-14 items-center justify-between gap-4 border-b border-indigo-50 bg-white/80 px-4 backdrop-blur-md shadow-sm">
                 <div className="flex items-center gap-3">
                   <div className="hidden md:block"><SidebarTrigger /></div>
-                  <div className="font-bold text-base md:text-lg bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">
-                    Hệ thống Quản lý Hụi
+                  <div className="text-sm md:text-base font-extrabold text-slate-800 flex items-center gap-1.5">
+                    <span className="text-indigo-500">👋</span>
+                    <span>Chào, <span className="bg-gradient-to-r from-indigo-600 to-violet-650 bg-clip-text text-transparent">
+                      {user.fullName.trim().split(/\s+/).length <= 1 
+                        ? user.fullName 
+                        : user.fullName.trim().split(/\s+/).slice(1).join(" ")}
+                    </span>!</span>
                   </div>
                 </div>
                 

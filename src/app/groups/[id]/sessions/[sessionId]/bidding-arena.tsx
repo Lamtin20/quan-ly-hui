@@ -705,35 +705,35 @@ export function BiddingArena({
 
       {/* Victory Celebration Modal */}
       <Dialog open={showWinnerPopup} onOpenChange={setShowWinnerPopup}>
-        <DialogContent className="max-w-md rounded-3xl border border-amber-200 p-8 bg-amber-50 text-center shadow-2xl relative overflow-hidden">
+        <DialogContent className="max-w-md rounded-3xl border border-amber-200 p-5 sm:p-8 bg-amber-50 text-center shadow-2xl relative overflow-y-auto max-h-[85vh] sm:max-h-none">
           {/* Confetti decoration */}
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-amber-200/20 via-transparent to-transparent pointer-events-none" />
           
           <DialogHeader className="flex flex-col items-center">
-            <div className="w-20 h-20 rounded-full bg-amber-100 flex items-center justify-center mb-4 shadow-md animate-bounce">
-              <Trophy className="w-10 h-10 text-amber-500" />
+            <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-full bg-amber-100 flex items-center justify-center mb-2 sm:mb-4 shadow-md animate-bounce">
+              <Trophy className="w-7 h-7 sm:w-10 sm:h-10 text-amber-500" />
             </div>
-            <DialogTitle className="text-2xl font-black text-amber-800">
+            <DialogTitle className="text-xl sm:text-2xl font-black text-amber-800">
               🎉 HỐT HỤI THÀNH CÔNG!
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4 py-4 relative z-10">
+          <div className="space-y-3 py-2 sm:space-y-4 sm:py-4 relative z-10">
             <div className="flex flex-col items-center">
-              <div className="w-20 h-20 rounded-full overflow-hidden flex items-center justify-center bg-white shadow-md border text-4xl mb-2">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden flex items-center justify-center bg-white shadow-md border text-3xl sm:text-4xl mb-2">
                 {winnerUser?.avatar && winnerUser.avatar.startsWith("data:image") ? (
                   <img src={winnerUser.avatar} alt={winnerUser.fullName} className="w-full h-full object-cover" />
                 ) : (
                   winnerUser?.avatar || "🤵"
                 )}
               </div>
-              <p className="text-xl font-bold text-slate-800">{winnerUser?.fullName}</p>
+              <p className="text-lg sm:text-xl font-bold text-slate-800">{winnerUser?.fullName}</p>
               <Badge className="bg-amber-100 text-amber-700 border border-amber-200 font-bold px-3 py-0.5 mt-1 rounded-lg">
                 Người chiến thắng Kỳ #{session.sessionNumber}
               </Badge>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 p-4 bg-white/80 rounded-2xl border border-amber-100 shadow-sm mt-4 text-slate-700">
+            <div className="grid grid-cols-2 gap-3 p-3 sm:p-4 bg-white/80 rounded-2xl border border-amber-100 shadow-sm mt-3 sm:mt-4 text-slate-700">
               <div>
                 <p className="text-[10px] text-slate-400 font-bold uppercase">Mức kêu giá</p>
                 <p className="text-sm font-extrabold text-slate-800 mt-0.5">{formatVND(session.bidAmount)}</p>
@@ -745,12 +745,12 @@ export function BiddingArena({
             </div>
           </div>
 
-          <div className="flex flex-col gap-2 pt-2 relative z-10">
+          <div className="flex flex-col gap-2 pt-1 sm:pt-2 relative z-10">
             {/* If player is NOT the winner, display CTA button to scroll/transfer */}
             {session.winnerUserId !== currentUser.id && (
               <Button 
                 onClick={handleCTAPopup} 
-                className="w-full py-5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold shadow-md transition-all active:scale-[0.98] text-xs"
+                className="w-full py-4 sm:py-5 rounded-xl sm:rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold shadow-md transition-all active:scale-[0.98] text-xs"
               >
                 <QrCode className="w-4 h-4 mr-2" /> Chuyển khoản đóng hụi ngay
               </Button>
@@ -758,14 +758,13 @@ export function BiddingArena({
             <Button 
               variant="outline" 
               onClick={handleClosePopup}
-              className="w-full py-5 rounded-2xl border-slate-200 hover:bg-slate-100 font-semibold text-xs"
+              className="w-full py-4 sm:py-5 rounded-xl sm:rounded-2xl border-slate-200 hover:bg-slate-100 font-semibold text-xs"
             >
               Đóng cửa sổ
             </Button>
           </div>
         </DialogContent>
       </Dialog>
-
     </div>
   )
 }

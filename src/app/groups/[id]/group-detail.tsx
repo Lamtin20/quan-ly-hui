@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { User, HuiGroup, HuiMember, HuiSession, Payment } from "@prisma/client"
+import { User, HuiGroup, HuiMember, HuiSession, Payment, Bid } from "@prisma/client"
 import { startNewSession } from "../../actions/sessions"
 import { startHuiGroup, joinHuiGroup } from "../../actions/groups"
 import { Button } from "@/components/ui/button"
@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { QrCode, PlayCircle, ArrowRight, Loader2, AlertCircle, UserPlus, CalendarDays, CheckCircle2, UserCheck, ShieldAlert, Users } from "lucide-react"
+import { QrCode, PlayCircle, ArrowRight, Loader2, AlertCircle, UserPlus, CalendarDays, CheckCircle2, UserCheck, ShieldAlert, Users, ChevronDown, ChevronUp } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { hasPassedJoinDeadline, getJoinDeadlineDate, formatDate } from "@/lib/utils"
@@ -18,6 +18,7 @@ type FullGroup = HuiGroup & {
   huiMembers: (HuiMember & { user: User })[]
   sessions: (HuiSession & {
     payments: (Payment & { user: User })[]
+    bids: Bid[]
   })[]
 }
 
@@ -44,6 +45,11 @@ export function GroupDetail({
   const [isStarting, setIsStarting] = useState(false)
   const [isActivating, setIsActivating] = useState(false)
   const [isJoining, setIsJoining] = useState(false)
+
+  const [expandedSessions, setExpandedSessions] = useState<Record<string, boolean>>({})
+  const toggleSession = (id: string) => {
+    setExpandedSessions(prev => ({ ...prev, [id]: !prev[id] }))
+  }
 
   // Real-time polling for updates
   useEffect(() => {
@@ -423,7 +429,10 @@ export function GroupDetail({
                 const winner = getWinnerInfo(session.winnerUserId)
                 return (
                   <Card key={session.id} className="overflow-hidden border border-slate-200/60 bg-white shadow-[0_4px_20px_rgba(0,0,0,0.015)] rounded-2xl hover:shadow-[0_8px_30px_rgba(0,0,0,0.03)] transition-all duration-200">
-                    <div className="bg-slate-50/50 px-5 py-4 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                    <div 
+                      className={`bg-slate-50/50 px-5 py-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 transition-colors ${session.status === "DONE" ? "cursor-pointer hover:bg-slate-100/70" : ""} ${expandedSessions[session.id] ? "border-b border-slate-100" : ""}`}
+                      onClick={() => { if(session.status === "DONE") toggleSession(session.id) }}
+                    >
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-2">
                           <Badge className="bg-indigo-600 text-white rounded-lg shadow-sm font-semibold">Kỳ {session.sessionNumber}</Badge>
@@ -444,75 +453,89 @@ export function GroupDetail({
                             </Badge>
                           )}
                         </div>
-                        <p className="text-[10px] text-slate-400 font-medium">
+                        <p className="text-[10px] text-slate-400 font-medium mt-1">
                           Ngày khui dự kiến: <span className="font-bold text-slate-600">{formatDate(session.openDate)}</span>
                         </p>
                       </div>
 
-                      {session.status === "DONE" && winner && (
-                        <div className="text-right text-xs">
-                          <p className="text-slate-500 font-medium">Người hốt: <strong className="text-indigo-700">{winner.fullName}</strong></p>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end mt-2 md:mt-0">
+                        {session.status === "DONE" && winner && (
+                          <div className="text-right text-xs bg-indigo-50/50 px-3 py-1.5 rounded-lg border border-indigo-100">
+                            <span className="text-slate-500 font-medium">Người hốt: </span><strong className="text-indigo-700 text-sm ml-1">{winner.fullName}</strong>
+                          </div>
+                        )}
 
-                      {session.status !== "DONE" && (
-                        <Link href={`/groups/${initialGroup.id}/sessions/${session.id}`}>
-                          <Button variant="outline" size="sm" className="rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 font-medium text-xs">
-                            Chi Tiết <ArrowRight className="w-3.5 h-3.5 ml-1.5"/>
-                          </Button>
-                        </Link>
-                      )}
+                        {session.status !== "DONE" && (
+                          <Link href={`/groups/${initialGroup.id}/sessions/${session.id}`}>
+                            <Button variant="outline" size="sm" className="rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50 font-medium text-xs">
+                              Chi Tiết <ArrowRight className="w-3.5 h-3.5 ml-1.5"/>
+                            </Button>
+                          </Link>
+                        )}
+                        
+                        {session.status === "DONE" && (
+                          <div className="bg-white p-1 rounded-full shadow-sm border border-slate-100">
+                            {expandedSessions[session.id] ? <ChevronUp className="w-4 h-4 text-slate-500" /> : <ChevronDown className="w-4 h-4 text-slate-500" />}
+                          </div>
+                        )}
+                      </div>
                     </div>
 
-                    {session.status === "DONE" && (
-                      <CardContent className="p-0 overflow-x-auto">
+                    {session.status === "DONE" && expandedSessions[session.id] && (
+                      <CardContent className="p-0 overflow-x-auto bg-white/50">
                         <Table>
-                          <TableHeader className="bg-slate-50/20">
-                            <TableRow>
-                              <TableHead className="pl-5 text-xs text-slate-500 font-semibold">Thành Viên</TableHead>
-                              <TableHead className="text-xs text-slate-500 font-semibold">Loại</TableHead>
-                              <TableHead className="text-xs text-slate-500 font-semibold">Tiền Đóng</TableHead>
-                              <TableHead className="text-right pr-5 text-xs text-slate-500 font-semibold">Thanh Toán</TableHead>
+                          <TableHeader className="bg-slate-50/50 border-b border-slate-100">
+                            <TableRow className="hover:bg-transparent">
+                              <TableHead className="pl-5 text-[11px] text-slate-500 font-bold uppercase tracking-wider h-10">Thành Viên</TableHead>
+                              <TableHead className="text-[11px] text-slate-500 font-bold uppercase tracking-wider h-10">Loại</TableHead>
+                              <TableHead className="text-[11px] text-slate-500 font-bold uppercase tracking-wider text-center h-10">Tiền Kêu</TableHead>
+                              <TableHead className="text-[11px] text-slate-500 font-bold uppercase tracking-wider text-right h-10">Tiền Đóng</TableHead>
+                              <TableHead className="text-right pr-5 text-[11px] text-slate-500 font-bold uppercase tracking-wider h-10">Thanh Toán</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {session.payments.map(payment => (
-                              <TableRow key={payment.id} className="hover:bg-slate-50/20">
+                            {session.payments.map(payment => {
+                              const bid = session.bids?.find(b => b.userId === payment.userId)
+                              return (
+                              <TableRow key={payment.id} className="hover:bg-slate-50/30 border-b-slate-50">
                                 <TableCell className="pl-5 font-bold text-slate-700 text-xs">{payment.user.fullName}</TableCell>
                                 <TableCell>
                                   {payment.isDead ? (
-                                    <Badge variant="destructive" className="bg-rose-50 text-rose-700 hover:bg-rose-50 border border-rose-100 text-[9px] rounded-lg font-bold shadow-none">Hụi Chết</Badge>
+                                    <Badge variant="destructive" className="bg-rose-50 text-rose-700 border-none text-[9px] rounded-md font-bold shadow-none px-1.5">Hụi Chết</Badge>
                                   ) : (
-                                    <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50 border border-emerald-100 text-[9px] rounded-lg font-bold shadow-none">Hụi Sống</Badge>
+                                    <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-none text-[9px] rounded-md font-bold shadow-none px-1.5">Hụi Sống</Badge>
                                   )}
                                 </TableCell>
-                                <TableCell className="font-bold text-slate-800 text-xs">{formatVND(payment.amountToPay)}</TableCell>
+                                <TableCell className="text-center font-semibold text-slate-600 text-xs">
+                                  {bid ? (bid.amount > 0 ? formatVND(bid.amount) : "Phiếu trắng") : "-"}
+                                </TableCell>
+                                <TableCell className="font-extrabold text-slate-800 text-xs text-right">{formatVND(payment.amountToPay)}</TableCell>
                                 <TableCell className="text-right pr-5">
                                   {winner?.bankName && winner?.bankAccountNumber ? (
                                     <Dialog>
                                       <DialogTrigger
                                         render={
-                                          <Button variant="outline" size="sm" className="h-7 text-[10px] font-medium border-slate-200 text-slate-600 rounded-lg shadow-none" type="button">
-                                            <QrCode className="w-3 h-3 mr-1 text-indigo-600"/> Quét QR
+                                          <Button variant="outline" size="sm" className="h-7 text-[10px] font-semibold border-indigo-100 bg-indigo-50/30 text-indigo-700 hover:bg-indigo-100 rounded-lg shadow-none transition-colors" type="button" onClick={(e) => e.stopPropagation()}>
+                                            <QrCode className="w-3 h-3 mr-1.5 text-indigo-500"/> Quét QR
                                           </Button>
                                         }
                                       />
-                                      <DialogContent className="sm:max-w-md flex flex-col items-center p-6 rounded-2xl">
+                                      <DialogContent className="sm:max-w-md flex flex-col items-center p-6 rounded-2xl border-indigo-100 shadow-xl" onClick={(e) => e.stopPropagation()}>
                                         <DialogHeader>
-                                          <DialogTitle className="text-center font-bold text-slate-900 mb-2">Chuyển Tiền Hụi Kỳ {session.sessionNumber}</DialogTitle>
+                                          <DialogTitle className="text-center font-bold text-slate-900 mb-2">Thanh Toán Trực Tiếp</DialogTitle>
                                         </DialogHeader>
-                                        <div className="bg-white p-3 rounded-2xl shadow-md border mb-4">
+                                        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-4 ring-4 ring-indigo-50/50">
                                           <img 
-                                            src={`https://img.vietqr.io/image/${getBankBin(winner.bankName)}-${winner.bankAccountNumber}-compact2.png?amount=${payment.amountToPay}&addInfo=Hui Ky ${session.sessionNumber}`}
+                                            src={`https://img.vietqr.io/image/${getBankBin(winner.bankName)}-${winner.bankAccountNumber}-compact2.png?amount=${payment.amountToPay}`}
                                             alt="VietQR"
                                             className="w-56 h-56 object-contain"
                                           />
                                         </div>
-                                        <div className="text-center text-xs space-y-2 w-full bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                          <div className="flex justify-between border-b border-slate-100 pb-1.5"><span className="text-slate-400 font-medium">Người nhận:</span> <strong className="text-indigo-700 font-bold">{winner.fullName}</strong></div>
-                                          <div className="flex justify-between border-b border-slate-100 pb-1.5"><span className="text-slate-400 font-medium">Ngân hàng:</span> <strong className="text-slate-700">{winner.bankName}</strong></div>
-                                          <div className="flex justify-between border-b border-slate-100 pb-1.5"><span className="text-slate-400 font-medium">Số TK:</span> <strong className="text-slate-700">{winner.bankAccountNumber}</strong></div>
-                                          <div className="flex justify-between pt-1"><span className="text-slate-400 font-medium">Số tiền:</span> <strong className="text-rose-600 text-base font-bold">{formatVND(payment.amountToPay)}</strong></div>
+                                        <div className="text-center text-xs space-y-2.5 w-full bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                          <div className="flex justify-between border-b border-slate-100 pb-2"><span className="text-slate-500 font-medium">Người nhận:</span> <strong className="text-indigo-700 font-bold uppercase">{winner.fullName}</strong></div>
+                                          <div className="flex justify-between border-b border-slate-100 pb-2"><span className="text-slate-500 font-medium">Ngân hàng:</span> <strong className="text-slate-700 font-bold">{winner.bankName}</strong></div>
+                                          <div className="flex justify-between border-b border-slate-100 pb-2"><span className="text-slate-500 font-medium">Số tài khoản:</span> <strong className="text-slate-700 font-mono font-bold text-sm">{winner.bankAccountNumber}</strong></div>
+                                          <div className="flex justify-between pt-1 items-center"><span className="text-slate-500 font-medium">Số tiền:</span> <strong className="text-rose-600 text-lg font-black">{formatVND(payment.amountToPay)}</strong></div>
                                         </div>
                                       </DialogContent>
                                     </Dialog>
@@ -521,7 +544,7 @@ export function GroupDetail({
                                   )}
                                 </TableCell>
                               </TableRow>
-                            ))}
+                            )})}
                           </TableBody>
                         </Table>
                       </CardContent>

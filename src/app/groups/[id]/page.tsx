@@ -20,7 +20,8 @@ export default async function GroupDetailPage(props: { params: Promise<{ id: str
         include: {
           payments: {
             include: { user: true }
-          }
+          },
+          bids: true
         },
         orderBy: { sessionNumber: "asc" }
       }

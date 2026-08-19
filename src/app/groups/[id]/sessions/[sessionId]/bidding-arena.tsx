@@ -479,7 +479,7 @@ export function BiddingArena({
 
     // VietQR URL for Winner
     const qrUrl = winnerUser?.bankName && winnerUser?.bankAccountNumber && myPayment 
-      ? `https://img.vietqr.io/image/${winnerUser.bankName}-${winnerUser.bankAccountNumber}-compact2.jpg?amount=${myPayment.amountToPay}&addInfo=Hui%20Ky%20${session.sessionNumber}`
+      ? `https://img.vietqr.io/image/${winnerUser.bankName}-${winnerUser.bankAccountNumber}-compact2.jpg?amount=${myPayment.amountToPay}`
       : null
 
     // Payment stats

@@ -55,7 +55,7 @@ export function GroupDetail({
   useEffect(() => {
     const interval = setInterval(() => {
       router.refresh()
-    }, 4000)
+    }, 10000)
     return () => clearInterval(interval)
   }, [router])
   
@@ -482,71 +482,74 @@ export function GroupDetail({
                     </div>
 
                     {session.status === "DONE" && expandedSessions[session.id] && (
-                      <CardContent className="p-0 overflow-x-auto bg-white/50">
-                        <Table>
-                          <TableHeader className="bg-slate-50/50 border-b border-slate-100">
-                            <TableRow className="hover:bg-transparent">
-                              <TableHead className="pl-5 text-[11px] text-slate-500 font-bold uppercase tracking-wider h-10">Thành Viên</TableHead>
-                              <TableHead className="text-[11px] text-slate-500 font-bold uppercase tracking-wider h-10">Loại</TableHead>
-                              <TableHead className="text-[11px] text-slate-500 font-bold uppercase tracking-wider text-center h-10">Tiền Kêu</TableHead>
-                              <TableHead className="text-[11px] text-slate-500 font-bold uppercase tracking-wider text-right h-10">Tiền Đóng</TableHead>
-                              <TableHead className="text-right pr-5 text-[11px] text-slate-500 font-bold uppercase tracking-wider h-10">Thanh Toán</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {session.payments.map(payment => {
-                              const bid = session.bids?.find(b => b.userId === payment.userId)
-                              return (
-                              <TableRow key={payment.id} className="hover:bg-slate-50/30 border-b-slate-50">
-                                <TableCell className="pl-5 font-bold text-slate-700 text-xs">{payment.user.fullName}</TableCell>
-                                <TableCell>
-                                  {payment.isDead ? (
-                                    <Badge variant="destructive" className="bg-rose-50 text-rose-700 border-none text-[9px] rounded-md font-bold shadow-none px-1.5">Hụi Chết</Badge>
-                                  ) : (
-                                    <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-none text-[9px] rounded-md font-bold shadow-none px-1.5">Hụi Sống</Badge>
-                                  )}
-                                </TableCell>
-                                <TableCell className="text-center font-semibold text-slate-600 text-xs">
-                                  {bid ? (bid.amount > 0 ? formatVND(bid.amount) : "Phiếu trắng") : "-"}
-                                </TableCell>
-                                <TableCell className="font-extrabold text-slate-800 text-xs text-right">{formatVND(payment.amountToPay)}</TableCell>
-                                <TableCell className="text-right pr-5">
+                      <CardContent className="p-4 bg-slate-50/50 border-t border-slate-100">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {session.payments.map(payment => {
+                            const bid = session.bids?.find(b => b.userId === payment.userId)
+                            return (
+                              <div key={payment.id} className="bg-white border border-slate-200/60 rounded-2xl p-4 shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-md transition-shadow relative overflow-hidden">
+                                <div className="flex items-center justify-between mb-3 pb-3 border-b border-slate-50">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center overflow-hidden">
+                                      {payment.user.avatar && payment.user.avatar.startsWith("data:image") ? (
+                                        <img src={payment.user.avatar} alt={payment.user.fullName} className="w-full h-full object-cover" />
+                                      ) : (
+                                        <span className="text-xs">{payment.user.avatar || "👤"}</span>
+                                      )}
+                                    </div>
+                                    <span className="font-bold text-slate-800 text-sm">{payment.user.fullName}</span>
+                                  </div>
+                                  <Badge className={`border-none shadow-none text-[10px] font-bold px-2 py-0.5 rounded-lg ${payment.isDead ? 'bg-rose-50 text-rose-700 hover:bg-rose-50' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-50'}`}>
+                                    {payment.isDead ? "Hụi Chết" : "Hụi Sống"}
+                                  </Badge>
+                                </div>
+                                <div className="space-y-2 mb-4">
+                                  <div className="flex justify-between items-center text-xs">
+                                    <span className="text-slate-500 font-medium">Tiền Kêu:</span>
+                                    <span className="font-semibold text-slate-700">{bid ? (bid.amount > 0 ? formatVND(bid.amount) : "Phiếu trắng") : "-"}</span>
+                                  </div>
+                                  <div className="flex justify-between items-center text-xs">
+                                    <span className="text-slate-500 font-medium">Tiền Đóng:</span>
+                                    <span className="font-black text-rose-600 text-sm">{formatVND(payment.amountToPay)}</span>
+                                  </div>
+                                </div>
+                                <div className="pt-3 border-t border-slate-100 flex justify-end">
                                   {winner?.bankName && winner?.bankAccountNumber ? (
                                     <Dialog>
                                       <DialogTrigger
                                         render={
-                                          <Button variant="outline" size="sm" className="h-7 text-[10px] font-semibold border-indigo-100 bg-indigo-50/30 text-indigo-700 hover:bg-indigo-100 rounded-lg shadow-none transition-colors" type="button" onClick={(e) => e.stopPropagation()}>
-                                            <QrCode className="w-3 h-3 mr-1.5 text-indigo-500"/> Quét QR
+                                          <Button variant="outline" size="sm" className="w-full h-8 text-[11px] font-semibold border-indigo-100 bg-indigo-50/50 text-indigo-700 hover:bg-indigo-100 rounded-xl shadow-none transition-colors" type="button" onClick={(e) => e.stopPropagation()}>
+                                            <QrCode className="w-3.5 h-3.5 mr-1.5 text-indigo-500"/> Quét Mã QR Thanh Toán
                                           </Button>
                                         }
                                       />
-                                      <DialogContent className="sm:max-w-md flex flex-col items-center p-6 rounded-2xl border-indigo-100 shadow-xl" onClick={(e) => e.stopPropagation()}>
+                                      <DialogContent className="sm:max-w-md flex flex-col items-center p-6 rounded-3xl border-indigo-100 shadow-2xl" onClick={(e) => e.stopPropagation()}>
                                         <DialogHeader>
-                                          <DialogTitle className="text-center font-bold text-slate-900 mb-2">Thanh Toán Trực Tiếp</DialogTitle>
+                                          <DialogTitle className="text-center font-black text-slate-900 mb-2 text-xl">Thanh Toán Trực Tiếp</DialogTitle>
                                         </DialogHeader>
-                                        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-4 ring-4 ring-indigo-50/50">
+                                        <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 mb-4 ring-4 ring-indigo-50/50">
                                           <img 
                                             src={`https://img.vietqr.io/image/${getBankBin(winner.bankName)}-${winner.bankAccountNumber}-compact2.png?amount=${payment.amountToPay}`}
                                             alt="VietQR"
                                             className="w-56 h-56 object-contain"
                                           />
                                         </div>
-                                        <div className="text-center text-xs space-y-2.5 w-full bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                          <div className="flex justify-between border-b border-slate-100 pb-2"><span className="text-slate-500 font-medium">Người nhận:</span> <strong className="text-indigo-700 font-bold uppercase">{winner.fullName}</strong></div>
-                                          <div className="flex justify-between border-b border-slate-100 pb-2"><span className="text-slate-500 font-medium">Ngân hàng:</span> <strong className="text-slate-700 font-bold">{winner.bankName}</strong></div>
-                                          <div className="flex justify-between border-b border-slate-100 pb-2"><span className="text-slate-500 font-medium">Số tài khoản:</span> <strong className="text-slate-700 font-mono font-bold text-sm">{winner.bankAccountNumber}</strong></div>
-                                          <div className="flex justify-between pt-1 items-center"><span className="text-slate-500 font-medium">Số tiền:</span> <strong className="text-rose-600 text-lg font-black">{formatVND(payment.amountToPay)}</strong></div>
+                                        <div className="text-center text-xs space-y-3 w-full bg-slate-50 p-5 rounded-2xl border border-slate-100">
+                                          <div className="flex justify-between border-b border-slate-100 pb-2.5"><span className="text-slate-500 font-medium">Người nhận:</span> <strong className="text-indigo-700 font-bold uppercase">{winner.fullName}</strong></div>
+                                          <div className="flex justify-between border-b border-slate-100 pb-2.5"><span className="text-slate-500 font-medium">Ngân hàng:</span> <strong className="text-slate-700 font-bold">{winner.bankName}</strong></div>
+                                          <div className="flex justify-between border-b border-slate-100 pb-2.5"><span className="text-slate-500 font-medium">Số tài khoản:</span> <strong className="text-slate-800 font-mono font-bold text-sm">{winner.bankAccountNumber}</strong></div>
+                                          <div className="flex justify-between pt-1.5 items-center"><span className="text-slate-500 font-medium">Số tiền đóng:</span> <strong className="text-rose-600 text-lg font-black">{formatVND(payment.amountToPay)}</strong></div>
                                         </div>
                                       </DialogContent>
                                     </Dialog>
                                   ) : (
-                                    <span className="text-[10px] text-slate-400 font-medium italic">Không có TKNH</span>
+                                    <span className="text-[10px] text-slate-400 font-medium italic w-full text-center py-1.5 bg-slate-50 rounded-lg">Người hốt chưa cập nhật Ngân hàng</span>
                                   )}
-                                </TableCell>
-                              </TableRow>
-                            )})}
-                          </TableBody>
-                        </Table>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
                       </CardContent>
                     )}
                   </Card>

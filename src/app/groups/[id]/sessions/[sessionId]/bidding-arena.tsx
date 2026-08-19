@@ -67,7 +67,7 @@ export function BiddingArena({
   useEffect(() => {
     const interval = setInterval(() => {
       router.refresh()
-    }, 3000)
+    }, 8000)
     return () => clearInterval(interval)
   }, [router])
 

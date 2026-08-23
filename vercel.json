@@ -1,3 +1,13 @@
 {
-  "name": "quan-ly-hui"
+  "name": "quan-ly-hui",
+  "env": {
+    "MONGODB_URI": "mongodb+srv://Vercel-Admin-atlas-bole-lamp:3Ay8EijSGCEsRr0e@atlas-bole-lamp.tprmvp3.mongodb.net/test?retryWrites=true&w=majority",
+    "JWT_SECRET": "tG8oV+vJ8h1XzUeG0uYwA/kM6qP3fW2rR9sO5nL4yQ0="
+  },
+  "build": {
+    "env": {
+      "MONGODB_URI": "mongodb+srv://Vercel-Admin-atlas-bole-lamp:3Ay8EijSGCEsRr0e@atlas-bole-lamp.tprmvp3.mongodb.net/test?retryWrites=true&w=majority",
+      "JWT_SECRET": "tG8oV+vJ8h1XzUeG0uYwA/kM6qP3fW2rR9sO5nL4yQ0="
+    }
+  }
 }

@@ -163,6 +163,8 @@ async function finalizeSession(sessionId: string, winnerUserId: string, bidAmoun
   const livingPayers = N - D - 1
   const winnerReceivedAmount = (A - B) * livingPayers + (A * D)
 
+  const winner = await prisma.user.findUnique({ where: { id: winnerUserId } });
+
   await prisma.$transaction(async (tx) => {
     const updatedSession = await tx.huiSession.update({
       where: { id: sessionId },
@@ -202,6 +204,37 @@ async function finalizeSession(sessionId: string, winnerUserId: string, bidAmoun
       })
     }
   })
+
+  // Bắn thông báo Telegram
+  const { sendTelegramMessage } = await import("@/lib/telegram");
+  
+  const getBankBin = (name: string) => {
+    const map: Record<string, string> = {
+      "Vietcombank": "VCB", "Techcombank": "TCB", "MBBank": "MB", 
+      "ACB": "ACB", "VietinBank": "CTG", "BIDV": "BIDV",
+      "Agribank": "VBA", "VPBank": "VPB", "TPBank": "TPB",
+      "Sacombank": "STB", "VIB": "VIB"
+    }
+    return map[name] || name;
+  };
+
+  const bin = winner?.bankName ? getBankBin(winner.bankName) : '';
+  const qrUrl = bin && winner?.bankAccountNumber 
+    ? `https://img.vietqr.io/image/${bin}-${winner.bankAccountNumber}-compact2.png` 
+    : '';
+
+  const moneyFormatter = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
+  const msgText = `🎉 <b>KẾT QUẢ KHUI HỤI</b> 🎉\n\n` +
+    `📍 <b>Dây hụi:</b> ${group.name}\n` +
+    `📅 <b>Kỳ số:</b> ${session.sessionNumber}\n` +
+    `🏆 <b>Người hốt:</b> ${winner?.fullName}\n` +
+    `💰 <b>Thực nhận:</b> ${moneyFormatter.format(winnerReceivedAmount)}\n\n` +
+    `🏦 <b>Thông tin chuyển khoản:</b>\n` +
+    `- Ngân hàng: ${winner?.bankName || 'Chưa cập nhật'}\n` +
+    `- STK: <code>${winner?.bankAccountNumber || 'Chưa cập nhật'}</code>\n` +
+    (qrUrl ? `\n<a href="${qrUrl}">Mở mã QR chuyển khoản</a>` : '');
+
+  await sendTelegramMessage(msgText);
 }
 
 export async function autoCloseIfAllBidded(sessionId: string) {
@@ -244,4 +277,50 @@ export async function autoCloseIfAllBidded(sessionId: string) {
       })
     }
   }
+}
+
+export async function adminQuickBid(sessionId: string) {
+  const user = await getUser()
+  if (!user || user.role !== "ADMIN") throw new Error("Unauthorized")
+
+  const session = await prisma.huiSession.findUnique({
+    where: { id: sessionId },
+    include: { 
+      huiGroup: { include: { huiMembers: true } },
+      bids: true
+    }
+  })
+
+  if (!session || session.status !== "BIDDING") {
+    throw new Error("Kỳ hụi không trong thời gian kêu giá")
+  }
+
+  if (!session.huiGroup.huiMembers.some(hm => hm.userId === user.id)) {
+    throw new Error("Admin không nằm trong dây hụi này, không thể hốt nhanh.")
+  }
+
+  const highestBid = session.bids.length > 0 ? Math.max(...session.bids.map(b => b.amount)) : 0
+  let newBid = highestBid + 500
+  
+  const maxBid = (session.huiGroup.amount * session.huiGroup.maxBidPercentage) / 100
+  if (newBid > maxBid) newBid = maxBid
+
+  await prisma.bid.upsert({
+    where: {
+      sessionId_userId: { sessionId, userId: user.id }
+    },
+    update: {
+      amount: newBid,
+      isWhiteTicket: false
+    },
+    create: {
+      sessionId,
+      userId: user.id,
+      amount: newBid,
+      isWhiteTicket: false
+    }
+  })
+
+  await autoCloseIfAllBidded(sessionId)
+  revalidatePath("/", "layout")
 }

@@ -92,3 +92,9 @@ model Payment {
   paidStatus  String     @default("UNPAID") // PaidStatus: UNPAID, PAID
   paidAt      DateTime?
 }
+
+model SystemSetting {
+  id    String @id @default(auto()) @map("_id") @db.ObjectId
+  key   String @unique
+  value String
+}

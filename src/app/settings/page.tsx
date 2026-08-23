@@ -14,6 +14,8 @@ export default async function SettingsPage() {
   if (!dbUser) return redirect("/login")
 
   let allUsers: any[] = []
+  let systemSettings: any[] = []
+  
   if (dbUser.role === "ADMIN") {
     allUsers = await prisma.user.findMany({
       orderBy: { fullName: "asc" },
@@ -25,9 +27,11 @@ export default async function SettingsPage() {
         avatar: true
       }
     })
+    
+    systemSettings = await prisma.systemSetting.findMany()
   }
 
   return (
-    <SettingsClient currentUser={dbUser} allUsers={allUsers} />
+    <SettingsClient currentUser={dbUser} allUsers={allUsers} systemSettings={systemSettings} />
   )
 }

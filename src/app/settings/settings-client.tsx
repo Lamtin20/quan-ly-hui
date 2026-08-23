@@ -21,8 +21,9 @@ import {
   AlertCircle
 } from "lucide-react"
 import { updateProfileAction, updateUserRoleAction } from "@/app/actions/auth"
+import { updateSystemSettings } from "@/app/actions/settings"
 
-export function SettingsClient({ currentUser, allUsers }: { currentUser: any, allUsers: any[] }) {
+export function SettingsClient({ currentUser, allUsers, systemSettings = [] }: { currentUser: any, allUsers: any[], systemSettings?: any[] }) {
   const [fullName, setFullName] = useState(currentUser.fullName || "")
   const [bankName, setBankName] = useState(currentUser.bankName || "")
   const [bankAccountNumber, setBankAccountNumber] = useState(currentUser.bankAccountNumber || "")
@@ -31,6 +32,12 @@ export function SettingsClient({ currentUser, allUsers }: { currentUser: any, al
   const [loading, setLoading] = useState(false)
   const [roleLoading, setRoleLoading] = useState<string | null>(null)
   const [notificationPermission, setNotificationPermission] = useState("default")
+
+  const initTeleToken = systemSettings.find(s => s.key === "TELEGRAM_BOT_TOKEN")?.value || ""
+  const initTeleChat = systemSettings.find(s => s.key === "TELEGRAM_CHAT_ID")?.value || ""
+  const [teleToken, setTeleToken] = useState(initTeleToken)
+  const [teleChatId, setTeleChatId] = useState(initTeleChat)
+  const [sysLoading, setSysLoading] = useState(false)
 
   useEffect(() => {
     if (typeof window !== "undefined" && "Notification" in window) {
@@ -146,6 +153,21 @@ export function SettingsClient({ currentUser, allUsers }: { currentUser: any, al
       })
     } else {
       alert("Vui lòng cho phép quyền thông báo trước khi thử nghiệm.")
+    }
+  }
+
+  const handleSaveSystemSettings = async () => {
+    setSysLoading(true)
+    try {
+      await updateSystemSettings([
+        { key: "TELEGRAM_BOT_TOKEN", value: teleToken },
+        { key: "TELEGRAM_CHAT_ID", value: teleChatId }
+      ])
+      alert("Cập nhật cài đặt hệ thống thành công!")
+    } catch (err: any) {
+      alert("Lỗi: " + err.message)
+    } finally {
+      setSysLoading(false)
     }
   }
 
@@ -352,61 +374,97 @@ export function SettingsClient({ currentUser, allUsers }: { currentUser: any, al
 
       {/* Admin Panel: Permissions & User Roles */}
       {currentUser.role === "ADMIN" && (
-        <Card className="border-indigo-100/60 shadow-lg bg-white/95 rounded-3xl overflow-hidden">
-          <CardHeader>
-            <CardTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
-              <UserCog className="w-5 h-5 text-indigo-500" /> Quản Lý Quyền Thành Viên (Admin)
-            </CardTitle>
-            <CardDescription className="text-xs">Chỉ Admin mới có quyền truy cập. Nâng cấp hoặc thu hồi quyền quản trị của người chơi.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
-              {allUsers.map((u) => {
-                const isMe = u.id === currentUser.id
-                return (
-                  <div key={u.id} className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/50 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden border">
-                        {u.avatar && u.avatar.startsWith("data:image") ? (
-                          <img src={u.avatar} alt={u.fullName} className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-lg">{u.avatar || "👤"}</span>
+        <div className="space-y-6">
+          <Card className="border-indigo-100/60 shadow-lg bg-white/95 rounded-3xl overflow-hidden">
+            <CardHeader>
+              <CardTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
+                <Bell className="w-5 h-5 text-indigo-500" /> Cấu hình Hệ thống (Admin)
+              </CardTitle>
+              <CardDescription className="text-xs">Cấu hình Bot Telegram để nhận thông báo hụi.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <Label className="text-slate-650 font-bold text-xs uppercase tracking-wider">Telegram Bot Token</Label>
+                  <Input 
+                    value={teleToken} 
+                    onChange={e => setTeleToken(e.target.value)} 
+                    placeholder="VD: 123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11" 
+                    className="rounded-xl border-slate-200 font-mono text-sm" 
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-slate-650 font-bold text-xs uppercase tracking-wider">Telegram Chat ID</Label>
+                  <Input 
+                    value={teleChatId} 
+                    onChange={e => setTeleChatId(e.target.value)} 
+                    placeholder="VD: -100123456789" 
+                    className="rounded-xl border-slate-200 font-mono text-sm" 
+                  />
+                </div>
+                <Button onClick={handleSaveSystemSettings} disabled={sysLoading} className="bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold w-full shadow-sm">
+                  {sysLoading ? "Đang lưu..." : "Lưu Cấu hình"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-indigo-100/60 shadow-lg bg-white/95 rounded-3xl overflow-hidden">
+            <CardHeader>
+              <CardTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
+                <UserCog className="w-5 h-5 text-indigo-500" /> Quản Lý Quyền Thành Viên
+              </CardTitle>
+              <CardDescription className="text-xs">Chỉ Admin mới có quyền truy cập. Nâng cấp hoặc thu hồi quyền quản trị của người chơi.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+                {allUsers.map((u) => {
+                  const isMe = u.id === currentUser.id
+                  return (
+                    <div key={u.id} className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/50 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden border">
+                          {u.avatar && u.avatar.startsWith("data:image") ? (
+                            <img src={u.avatar} alt={u.fullName} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-lg">{u.avatar || "👤"}</span>
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
+                            {u.fullName}
+                            {isMe && <Badge className="bg-indigo-50 text-indigo-700 border-indigo-100 rounded-lg text-[9px]">Bạn</Badge>}
+                          </p>
+                          <p className="text-[10px] text-slate-400 font-mono mt-0.5">{u.phone}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Badge className={`rounded-xl text-[10px] font-bold px-2 py-0.5 border ${
+                          u.role === "ADMIN" ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-slate-100 text-slate-600 border-slate-250'
+                        }`}>
+                          {u.role === "ADMIN" ? "Admin" : "Thành viên"}
+                        </Badge>
+                        
+                        {!isMe && (
+                          <Button
+                            disabled={roleLoading === u.id}
+                            onClick={() => handleToggleRole(u.id, u.role)}
+                            variant="outline"
+                            size="sm"
+                            className="h-8 border-indigo-200 text-indigo-600 hover:bg-indigo-50 rounded-xl font-bold text-xs"
+                          >
+                            {roleLoading === u.id ? "Đang xử lý..." : u.role === "ADMIN" ? "Hạ quyền" : "Lên Admin"}
+                          </Button>
                         )}
                       </div>
-                      <div>
-                        <p className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
-                          {u.fullName}
-                          {isMe && <Badge className="bg-indigo-50 text-indigo-700 border-indigo-100 rounded-lg text-[9px]">Bạn</Badge>}
-                        </p>
-                        <p className="text-[10px] text-slate-400 font-mono mt-0.5">{u.phone}</p>
-                      </div>
                     </div>
-
-                    <div className="flex items-center gap-2">
-                      <Badge className={`rounded-xl text-[10px] font-bold px-2 py-0.5 border ${
-                        u.role === "ADMIN" ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-slate-100 text-slate-600 border-slate-250'
-                      }`}>
-                        {u.role === "ADMIN" ? "Admin" : "Thành viên"}
-                      </Badge>
-                      
-                      {!isMe && (
-                        <Button
-                          disabled={roleLoading === u.id}
-                          onClick={() => handleToggleRole(u.id, u.role)}
-                          variant="outline"
-                          size="sm"
-                          className="h-8 border-indigo-200 text-indigo-600 hover:bg-indigo-50 rounded-xl font-bold text-xs"
-                        >
-                          {roleLoading === u.id ? "Đang xử lý..." : u.role === "ADMIN" ? "Hạ quyền" : "Lên Admin"}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </CardContent>
-        </Card>
+                  )
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
     </div>

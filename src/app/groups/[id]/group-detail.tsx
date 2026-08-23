@@ -50,6 +50,7 @@ export function GroupDetail({
   const toggleSession = (id: string) => {
     setExpandedSessions(prev => ({ ...prev, [id]: !prev[id] }))
   }
+  const [sessionFilter, setSessionFilter] = useState<"ALL" | "DONE" | "CURRENT" | "PENDING">("CURRENT")
 
   // Real-time polling for updates
   useEffect(() => {
@@ -163,6 +164,14 @@ export function GroupDetail({
   const nextPendingSession = initialGroup.sessions
     .filter(s => s.status === "PENDING")
     .sort((a, b) => a.sessionNumber - b.sessionNumber)[0]
+
+  const filteredSessions = initialGroup.sessions.filter(s => {
+    if (sessionFilter === "ALL") return true;
+    if (sessionFilter === "DONE") return s.status === "DONE";
+    if (sessionFilter === "PENDING") return s.status === "PENDING";
+    if (sessionFilter === "CURRENT") return s.status === "BIDDING" || s.status === "TIE_BREAKER";
+    return true;
+  })
 
   return (
     <div className="flex flex-col gap-6 max-w-4xl mx-auto pb-10">
@@ -323,7 +332,7 @@ export function GroupDetail({
       {/* Layout Grid: Members list & Sessions status */}
       <div className="grid gap-6 md:grid-cols-3">
         
-        {/* Members Status Panel */}
+{/* Members Status Panel */}
         <div className="md:col-span-1 space-y-4">
           <Card className="border border-slate-200/60 bg-white shadow-[0_12px_40px_rgba(0,0,0,0.03)] rounded-2xl overflow-hidden">
             <CardHeader className="border-b border-slate-100 bg-slate-50/50 py-4 px-5">
@@ -408,24 +417,31 @@ export function GroupDetail({
 
         {/* Sessions Panel */}
         <div className="md:col-span-2 space-y-4">
-          <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2 px-1">
-            <CalendarDays className="w-5 h-5 text-indigo-600" />
-            Danh Sách Kỳ Khui Hụi
-          </h2>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2 px-1">
+              <CalendarDays className="w-5 h-5 text-indigo-600" />
+              Danh Sách Kỳ Khui Hụi
+            </h2>
+            <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+              <Button onClick={() => setSessionFilter("CURRENT")} variant="ghost" size="sm" className={`h-8 rounded-lg text-xs font-bold ${sessionFilter === "CURRENT" ? "bg-white text-indigo-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>Kỳ Hiện Tại</Button>
+              <Button onClick={() => setSessionFilter("DONE")} variant="ghost" size="sm" className={`h-8 rounded-lg text-xs font-bold ${sessionFilter === "DONE" ? "bg-white text-indigo-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>Hoàn Tất</Button>
+              <Button onClick={() => setSessionFilter("PENDING")} variant="ghost" size="sm" className={`h-8 rounded-lg text-xs font-bold ${sessionFilter === "PENDING" ? "bg-white text-indigo-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>Chưa Đến Kỳ</Button>
+              <Button onClick={() => setSessionFilter("ALL")} variant="ghost" size="sm" className={`h-8 rounded-lg text-xs font-bold ${sessionFilter === "ALL" ? "bg-white text-indigo-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>Tất Cả</Button>
+            </div>
+          </div>
 
-          {initialGroup.sessions.length === 0 ? (
+          {filteredSessions.length === 0 ? (
             <Card className="border border-slate-200/60 bg-white shadow-[0_12px_40px_rgba(0,0,0,0.03)] rounded-2xl">
               <CardContent className="p-12 text-center text-slate-400 flex flex-col items-center">
                 <div className="w-16 h-16 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center mb-4">
                   <PlayCircle className="w-8 h-8 text-slate-300" />
                 </div>
-                <p className="font-semibold text-sm">Chưa có lịch kỳ hụi nào được sinh.</p>
-                <p className="text-xs text-slate-400 mt-1">Admin cần bấm "Bắt đầu dây hụi" để khởi tạo.</p>
+                <p className="font-semibold text-sm">Không tìm thấy kỳ hụi nào phù hợp.</p>
               </CardContent>
             </Card>
           ) : (
             <div className="space-y-4">
-              {initialGroup.sessions.map((session) => {
+              {filteredSessions.map((session) => {
                 const winner = getWinnerInfo(session.winnerUserId)
                 return (
                   <Card key={session.id} className="overflow-hidden border border-slate-200/60 bg-white shadow-[0_4px_20px_rgba(0,0,0,0.015)] rounded-2xl hover:shadow-[0_8px_30px_rgba(0,0,0,0.03)] transition-all duration-200">
@@ -459,9 +475,79 @@ export function GroupDetail({
                       </div>
 
                       <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end mt-2 md:mt-0">
+                        {session.status === "BIDDING" && isAdmin && (
+                          <div className="flex items-center gap-2">
+                            <div className="text-right text-xs bg-indigo-50/50 px-3 py-1.5 rounded-lg border border-indigo-100 flex flex-col gap-0.5">
+                              <div>
+                                <span className="text-slate-500 font-medium">Giá cao nhất: </span>
+                                <strong className="text-indigo-700 text-sm ml-1">
+                                  {session.bids?.length > 0 ? formatVND(Math.max(...session.bids.map(b => b.amount))) : "0 đ"}
+                                </strong>
+                              </div>
+                            </div>
+                            <Button 
+                              onClick={(e) => { e.stopPropagation(); handleAdminQuickBid(session.id) }} 
+                              disabled={isActivating}
+                              size="sm" 
+                              className="h-[42px] px-3 bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 text-white rounded-lg font-bold shadow-sm"
+                            >
+                              Hốt Nhanh (+500đ)
+                            </Button>
+                          </div>
+                        )}
+
                         {session.status === "DONE" && winner && (
-                          <div className="text-right text-xs bg-indigo-50/50 px-3 py-1.5 rounded-lg border border-indigo-100">
-                            <span className="text-slate-500 font-medium">Người hốt: </span><strong className="text-indigo-700 text-sm ml-1">{winner.fullName}</strong>
+                          <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2">
+                            <div className="text-right text-xs bg-indigo-50/50 px-3 py-1.5 rounded-lg border border-indigo-100 flex flex-col">
+                              <div><span className="text-slate-500 font-medium">Người hốt: </span><strong className="text-indigo-700 text-sm ml-1">{winner.fullName}</strong></div>
+                              <span className="text-[10px] text-slate-400 font-medium mt-0.5">{winner.bankName || 'Chưa cập nhật Bank'} - {winner.bankAccountNumber || ''}</span>
+                            </div>
+                            <Dialog>
+                              <DialogTrigger render={
+                                <Button variant="outline" size="sm" className="h-[42px] px-3 bg-white border-indigo-100 text-indigo-600 hover:bg-indigo-50 shadow-sm rounded-lg" onClick={(e) => e.stopPropagation()}>
+                                  <QrCode className="w-4 h-4 mr-1.5" /> Chuyển khoản
+                                </Button>
+                              } />
+                              <DialogContent className="sm:max-w-md flex flex-col items-center p-6 rounded-3xl border-indigo-100 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                                <DialogHeader>
+                                  <DialogTitle className="text-center font-black text-slate-900 mb-2 text-xl">Thông Tin Chuyển Khoản</DialogTitle>
+                                </DialogHeader>
+                                <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 mb-4 ring-4 ring-indigo-50/50">
+                                  <img 
+                                    src={`https://img.vietqr.io/image/${getBankBin(winner.bankName || '')}-${winner.bankAccountNumber}-compact2.png`}
+                                    alt="VietQR"
+                                    className="w-56 h-56 object-contain"
+                                  />
+                                </div>
+                                <div className="text-center text-xs space-y-3 w-full bg-slate-50 p-5 rounded-2xl border border-slate-100">
+                                  <div className="flex justify-between border-b border-slate-100 pb-2.5"><span className="text-slate-500 font-medium">Người nhận:</span> <strong className="text-indigo-700 font-bold uppercase">{winner.fullName}</strong></div>
+                                  <div className="flex justify-between border-b border-slate-100 pb-2.5"><span className="text-slate-500 font-medium">Ngân hàng:</span> <strong className="text-slate-700 font-bold">{winner.bankName || 'Chưa cập nhật'}</strong></div>
+                                  <div className="flex justify-between items-center"><span className="text-slate-500 font-medium">Số tài khoản:</span> <strong className="text-slate-800 font-mono font-bold text-sm">{winner.bankAccountNumber || 'Chưa cập nhật'}</strong></div>
+                                </div>
+                                {(() => {
+                                  const livingPayers = session.payments.filter(p => !p.isDead)
+                                  const deadPayers = session.payments.filter(p => p.isDead)
+                                  const livingAmount = livingPayers[0]?.amountToPay || 0
+                                  const deadAmount = deadPayers[0]?.amountToPay || 0
+                                  return (
+                                    <div className="w-full flex flex-col gap-2 mt-4 pt-4 border-t border-slate-100 px-2">
+                                      {livingPayers.length > 0 && (
+                                        <div className="flex justify-between items-center text-xs">
+                                          <span className="text-slate-600 font-medium">Hụi sống đóng:</span>
+                                          <strong className="text-rose-600 font-bold text-sm">{formatVND(livingAmount)}</strong>
+                                        </div>
+                                      )}
+                                      {deadPayers.length > 0 && (
+                                        <div className="flex justify-between items-center text-xs">
+                                          <span className="text-slate-600 font-medium">Hụi chết đóng:</span>
+                                          <strong className="text-rose-600 font-bold text-sm">{formatVND(deadAmount)}</strong>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )
+                                })()}
+                              </DialogContent>
+                            </Dialog>
                           </div>
                         )}
 
@@ -487,7 +573,7 @@ export function GroupDetail({
                           {session.payments.map(payment => {
                             const bid = session.bids?.find(b => b.userId === payment.userId)
                             return (
-                              <div key={payment.id} className="bg-white border border-slate-200/60 rounded-2xl p-4 shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-md transition-shadow relative overflow-hidden">
+                              <div key={payment.id} className="bg-white border border-slate-200/60 rounded-2xl p-4 shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-md transition-shadow relative overflow-hidden flex flex-col h-full">
                                 <div className="flex items-center justify-between mb-3 pb-3 border-b border-slate-50">
                                   <div className="flex items-center gap-2">
                                     <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center overflow-hidden">
@@ -513,7 +599,7 @@ export function GroupDetail({
                                     <span className="font-black text-rose-600 text-sm">{formatVND(payment.amountToPay)}</span>
                                   </div>
                                 </div>
-                                <div className="pt-3 border-t border-slate-100 flex justify-end">
+                                <div className="pt-3 border-t border-slate-100 flex justify-end mt-auto">
                                   {winner?.bankName && winner?.bankAccountNumber ? (
                                     <Dialog>
                                       <DialogTrigger
@@ -529,7 +615,7 @@ export function GroupDetail({
                                         </DialogHeader>
                                         <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 mb-4 ring-4 ring-indigo-50/50">
                                           <img 
-                                            src={`https://img.vietqr.io/image/${getBankBin(winner.bankName)}-${winner.bankAccountNumber}-compact2.png?amount=${payment.amountToPay}`}
+                                            src={`https://img.vietqr.io/image/${getBankBin(winner.bankName)}-${winner.bankAccountNumber}-compact2.png`}
                                             alt="VietQR"
                                             className="w-56 h-56 object-contain"
                                           />

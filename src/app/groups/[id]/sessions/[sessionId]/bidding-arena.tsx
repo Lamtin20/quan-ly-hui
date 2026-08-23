@@ -44,6 +44,7 @@ export function BiddingArena({
   
   // State for Victory Popup
   const [showWinnerPopup, setShowWinnerPopup] = useState(false)
+  const [showAdminBids, setShowAdminBids] = useState(false)
 
   // Tie-breaker ball selection state
   const [selectedBallIndex, setSelectedBallIndex] = useState<number | null>(null)
@@ -271,15 +272,21 @@ export function BiddingArena({
               <CardDescription className="text-xs">Theo dõi những người đã hoàn tất bỏ thăm.</CardDescription>
             </div>
             {isAdmin && (
-              <Button onClick={handleCloseBidding} disabled={loading} size="sm" variant="destructive" className="rounded-xl px-3 font-semibold text-xs transition-all active:scale-[0.98]">
-                Chốt Kết Quả Ngay
-              </Button>
+              <div className="flex gap-2">
+                <Button onClick={() => setShowAdminBids(!showAdminBids)} variant="outline" size="sm" className="rounded-xl px-3 font-semibold text-xs border-indigo-200 text-indigo-600">
+                  {showAdminBids ? "Ẩn giá kêu" : "Xem chi tiết giá"}
+                </Button>
+                <Button onClick={handleCloseBidding} disabled={loading} size="sm" variant="destructive" className="rounded-xl px-3 font-semibold text-xs transition-all active:scale-[0.98]">
+                  Chốt Ngay
+                </Button>
+              </div>
             )}
           </CardHeader>
           <CardContent>
             <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
               {session.huiGroup.huiMembers.filter((hm:any) => !deadIds.includes(hm.userId)).map((hm: any) => {
-                const hasBid = session.bids.some((b: any) => b.userId === hm.userId)
+                const userBid = session.bids.find((b: any) => b.userId === hm.userId)
+                const hasBid = !!userBid
                 return (
                   <div key={hm.userId} className="flex items-center justify-between p-3 rounded-2xl bg-slate-50/70 border border-slate-100">
                     <div className="flex items-center gap-2">
@@ -293,7 +300,13 @@ export function BiddingArena({
                       <span className="font-semibold text-slate-700 text-sm">{hm.user.fullName}</span>
                     </div>
                     {hasBid ? (
-                      <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-50 rounded-xl px-2.5 py-1 text-[11px] font-bold"><Check className="w-3 h-3 mr-1 inline"/> Đã bỏ thăm</Badge>
+                      isAdmin && showAdminBids ? (
+                        <Badge className="bg-rose-50 text-rose-700 border border-rose-100 hover:bg-rose-50 rounded-xl px-2.5 py-1 text-[11px] font-bold">
+                          {userBid.isWhiteTicket ? "Phiếu Trắng" : formatVND(userBid.amount)}
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-100 hover:bg-emerald-50 rounded-xl px-2.5 py-1 text-[11px] font-bold"><Check className="w-3 h-3 mr-1 inline"/> Đã bỏ thăm</Badge>
+                      )
                     ) : (
                       <Badge variant="outline" className="text-slate-400 border-dashed rounded-xl px-2.5 py-1 text-[11px] font-semibold"><CircleDashed className="w-3 h-3 mr-1 animate-spin inline"/> Đang chờ</Badge>
                     )}
@@ -479,7 +492,7 @@ export function BiddingArena({
 
     // VietQR URL for Winner
     const qrUrl = winnerUser?.bankName && winnerUser?.bankAccountNumber && myPayment 
-      ? `https://img.vietqr.io/image/${winnerUser.bankName}-${winnerUser.bankAccountNumber}-compact2.jpg?amount=${myPayment.amountToPay}`
+      ? `https://img.vietqr.io/image/${winnerUser.bankName}-${winnerUser.bankAccountNumber}-compact2.jpg`
       : null
 
     // Payment stats
@@ -587,7 +600,31 @@ export function BiddingArena({
                     <div className="space-y-1.5 text-xs text-slate-700 font-semibold">
                       <p className="flex justify-between"><span>Người nhận:</span> <span className="font-bold text-slate-900">{winnerUser?.fullName}</span></p>
                       <p className="flex justify-between"><span>Ngân hàng:</span> <span className="font-bold text-slate-900">{winnerUser?.bankName || "—"}</span></p>
-                      <p className="flex justify-between"><span>Số tài khoản:</span> <span className="font-bold text-slate-900 font-mono">{winnerUser?.bankAccountNumber || "—"}</span></p>
+                      <p className="flex justify-between border-b border-slate-100 pb-2"><span>Số tài khoản:</span> <span className="font-bold text-slate-900 font-mono">{winnerUser?.bankAccountNumber || "—"}</span></p>
+                      
+                      {(() => {
+                        const livingPayers = session.payments.filter((p: any) => !p.isDead)
+                        const deadPayers = session.payments.filter((p: any) => p.isDead)
+                        const livingAmount = livingPayers[0]?.amountToPay || 0
+                        const deadAmount = deadPayers[0]?.amountToPay || 0
+                        return (
+                          <div className="w-full flex flex-col gap-1.5 pt-2 text-left">
+                            <div className="text-[10px] text-slate-400 font-bold uppercase mb-0.5">Thông tin chung:</div>
+                            {livingPayers.length > 0 && (
+                              <div className="flex justify-between items-center text-xs">
+                                <span className="text-slate-500 font-medium">Hụi sống đóng:</span>
+                                <strong className="text-rose-600 font-bold text-sm">{formatVND(livingAmount)}</strong>
+                              </div>
+                            )}
+                            {deadPayers.length > 0 && (
+                              <div className="flex justify-between items-center text-xs">
+                                <span className="text-slate-500 font-medium">Hụi chết đóng:</span>
+                                <strong className="text-rose-600 font-bold text-sm">{formatVND(deadAmount)}</strong>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })()}
                       <div className="p-3 bg-indigo-50 rounded-xl text-indigo-900 mt-3 border border-indigo-100/50 flex justify-between items-center">
                         <div>
                           <p className="text-[9px] font-bold text-indigo-700 uppercase tracking-wider">Số tiền cần đóng:</p>

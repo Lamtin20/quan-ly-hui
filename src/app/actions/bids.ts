@@ -26,7 +26,7 @@ export async function submitBid(sessionId: string, amount: number, isWhiteTicket
     throw new Error(`Giá kêu không được vượt quá ${session.huiGroup.maxBidPercentage}% (${maxBid} đ)`)
   }
 
-  await prisma.bid.upsert({
+  const newBid = await prisma.bid.upsert({
     where: {
       sessionId_userId: { sessionId, userId: user.id }
     },
@@ -41,6 +41,46 @@ export async function submitBid(sessionId: string, amount: number, isWhiteTicket
       isWhiteTicket
     }
   })
+
+  // Tính toán tiến độ bỏ thăm để báo Telegram
+  const previousSessions = await prisma.huiSession.findMany({
+    where: { huiGroupId: session.huiGroupId, status: "DONE" },
+    select: { winnerUserId: true }
+  })
+  
+  const deadIds = previousSessions.map(s => s.winnerUserId).filter(Boolean) as string[]
+  const livingUserIds = session.huiGroup.huiMembers
+    .map(hm => hm.userId)
+    .filter(id => !deadIds.includes(id))
+    
+  // Lấy danh sách bid mới nhất
+  const currentBids = await prisma.bid.findMany({
+    where: { sessionId }
+  })
+  
+  const biddedLivingUserIds = currentBids
+    .filter(b => livingUserIds.includes(b.userId))
+    .map(b => b.userId)
+    
+  const totalLiving = livingUserIds.length
+  const biddedCount = biddedLivingUserIds.length
+  const pendingCount = totalLiving - biddedCount
+  
+  const moneyFormatter = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
+  const bidAmountText = isWhiteTicket ? "Phiếu Trắng" : moneyFormatter.format(amount);
+  
+  const msgText = `📢 <b>CÓ NGƯỜI VỪA BỎ THĂM</b>\n\n` +
+    `📍 <b>Dây hụi:</b> ${session.huiGroup.name}\n` +
+    `📅 <b>Kỳ số:</b> ${session.sessionNumber}\n` +
+    `👤 <b>Người bỏ:</b> ${user.fullName}\n` +
+    `💰 <b>Giá kêu:</b> ${bidAmountText}\n\n` +
+    `📊 <b>Tiến độ:</b>\n` +
+    `✅ Đã bỏ: ${biddedCount}/${totalLiving} người\n` +
+    `⏳ Chưa bỏ: ${pendingCount} người`;
+    
+  const { sendTelegramMessage } = await import("@/lib/telegram");
+  // Gọi bất đồng bộ không await để không làm chậm trải nghiệm UI
+  sendTelegramMessage(msgText).catch(console.error);
 
   // Tự động đóng kỳ hụi nếu tất cả thành viên sống đã bỏ thăm xong
   await autoCloseIfAllBidded(sessionId)

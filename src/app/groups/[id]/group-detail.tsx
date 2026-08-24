@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { User, HuiGroup, HuiMember, HuiSession, Payment, Bid } from "@prisma/client"
 import { startNewSession } from "../../actions/sessions"
 import { startHuiGroup, joinHuiGroup } from "../../actions/groups"
+import { adminQuickBid } from "../../actions/bids"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -107,6 +108,21 @@ export function GroupDetail({
     } catch (error: any) {
       alert(error.message || "Đã xảy ra lỗi!")
       setIsActivating(false)
+    }
+  }
+
+  const handleAdminQuickBid = async (sessionId: string) => {
+    if (!isAdmin) return;
+    if (confirm("Chốt nhanh với giá Cao Nhất + 500đ ngay bây giờ?")) {
+      setIsActivating(true)
+      try {
+        await adminQuickBid(sessionId)
+        router.refresh()
+      } catch (error: any) {
+        alert(error.message || "Có lỗi xảy ra")
+      } finally {
+        setIsActivating(false)
+      }
     }
   }
 

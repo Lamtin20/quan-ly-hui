@@ -334,7 +334,7 @@ export function BiddingArena({
   const renderTieBreakerState = () => {
     const data = session.tieBreakerData as any
     const myTiedMemberIds = data.tiedMemberIds ? data.tiedMemberIds.filter((mid: string) => 
-      initialGroup.huiMembers.some(hm => hm.id === mid && hm.userId === currentUser.id)
+      session.huiGroup.huiMembers.some((hm: any) => hm.id === mid && hm.userId === currentUser.id)
     ) : []
     const amIInvolved = myTiedMemberIds.length > 0
     const firstUnpickedMemberId = myTiedMemberIds.find((mid: string) => !data.selected[mid])
@@ -451,7 +451,7 @@ export function BiddingArena({
 
               <div className="grid gap-3 sm:grid-cols-2">
                 {(data.tiedMemberIds || []).map((mid: string) => {
-                  const hm = initialGroup.huiMembers.find(m => m.id === mid)
+                  const hm = session.huiGroup.huiMembers.find((m: any) => m.id === mid)
                   const u = hm?.user
                   const num = data.selected[mid]
                   const isMe = hm?.userId === currentUser.id
@@ -476,7 +476,7 @@ export function BiddingArena({
                             {u?.fullName}
                             {isMe && <Badge className="bg-indigo-600 text-white text-[9px] font-bold px-1.5 py-0 rounded">Bạn</Badge>}
                           </p>
-                          <p className="text-[10px] text-slate-400 font-medium">Kêu giá: {formatVND(session.bids.find((b: any) => b.userId === uid)?.amount || 0)}</p>
+                          <p className="text-[10px] text-slate-400 font-medium">Kêu giá: {formatVND(session.bids.find((b: any) => b.huiMemberId === mid)?.amount || 0)}</p>
                         </div>
                       </div>
 

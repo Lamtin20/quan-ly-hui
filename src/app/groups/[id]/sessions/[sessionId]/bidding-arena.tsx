@@ -201,8 +201,8 @@ export function BiddingArena({
         {/* Danh sách Form nhập giá (Hỗ trợ 1 người nhiều chân hụi - sống & chết) */}
         {myStakes.map((stake: any, idx: number) => {
           const isDead = deadIds.includes(stake.id)
-          const transferNotice = session.huiGroup.transferHistories?.find((th: any) => th.memberId === stake.id)
-          const wonSession = isDead ? previousSessions.find((s: any) => s.winnerMemberId === stake.id) : null
+          const transferNotice = session.huiGroup.transferHistories?.find((th: any) => th.memberId === stake.id && th.toUserId === currentUser.id)
+          const wonSession = isDead ? (previousSessions.find((s: any) => s.winnerMemberId === stake.id) || previousSessions.find((s: any) => s.winnerUserId === currentUser.id)) : null
           const myBid = session.bids.find((b: any) => b.huiMemberId === stake.id)
           const canEdit = myBid ? (Date.now() - new Date(myBid.createdAt).getTime() <= 2 * 60 * 60 * 1000) : false
           const hoursLeft = myBid ? Math.max(0, 2 - (Date.now() - new Date(myBid.createdAt).getTime()) / (1000 * 60 * 60)) : 0

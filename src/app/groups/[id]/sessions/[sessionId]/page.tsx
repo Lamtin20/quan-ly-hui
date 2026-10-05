@@ -40,9 +40,18 @@ export default async function SessionPage(props: { params: Promise<{ id: string,
     if (s.winnerMemberId) {
       deadSet.add(s.winnerMemberId)
     } else if (s.winnerUserId) {
-      const matched = session.huiGroup.huiMembers.find((m: any) => m.userId === s.winnerUserId)
-      if (matched) {
-        deadSet.add(matched.id)
+      const candidateMembers = session.huiGroup.huiMembers.filter((m: any) => {
+        const transferredToWinnerLater = session.huiGroup.transferHistories?.some((th: any) => 
+          th.memberId === m.id && 
+          th.toUserId === s.winnerUserId && 
+          th.sessionNumber && 
+          th.sessionNumber >= s.sessionNumber
+        )
+        if (transferredToWinnerLater) return false
+        return m.userId === s.winnerUserId || session.huiGroup.transferHistories?.some((th: any) => th.memberId === m.id && th.fromUserId === s.winnerUserId)
+      })
+      if (candidateMembers.length > 0) {
+        deadSet.add(candidateMembers[0].id)
       }
     }
   })

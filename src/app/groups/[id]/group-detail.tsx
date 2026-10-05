@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import { User, HuiGroup, HuiMember, HuiSession, Payment, Bid } from "@prisma/client"
 import { startNewSession } from "../../actions/sessions"
 import { startHuiGroup, joinHuiGroup } from "../../actions/groups"
@@ -70,14 +70,25 @@ export function GroupDetail({
   const isMember = initialGroup.huiMembers.some(hm => hm.userId === currentUser.id)
   
   // Find which sessions are done to track dead members
-  const deadMemberIds = initialGroup.sessions
-    .filter(s => s.status === "DONE")
-    .map(s => getWinnerMemberId(s, initialGroup))
-    .filter(Boolean) as string[]
+  const deadMemberIds = useMemo(() => {
+    return initialGroup.sessions
+      .filter(s => s.status === "DONE")
+      .map(s => getWinnerMemberId(s, initialGroup))
+      .filter(Boolean) as string[]
+  }, [initialGroup])
 
-  // Auto open transfer dialog
+  const handleTransferOpenChange = (open: boolean) => {
+    setIsTransferDialogOpen(open)
+    if (!open && searchParams.get("action") === "transfer") {
+      router.replace(`/groups/${initialGroup.id}`, { scroll: false })
+    }
+  }
+
+  // Auto open transfer dialog once if url has ?action=transfer
+  const autoOpenedRef = useRef(false)
   useEffect(() => {
-    if (searchParams.get("action") === "transfer" && (isMember || isAdmin) && initialGroup.status !== "FINISHED") {
+    if (!autoOpenedRef.current && searchParams.get("action") === "transfer" && (isMember || isAdmin) && initialGroup.status !== "FINISHED") {
+      autoOpenedRef.current = true
       const myLivingStakes = initialGroup.huiMembers.filter(hm => hm.userId === currentUser.id && !deadMemberIds.includes(hm.id))
       if (myLivingStakes.length > 0) {
         setSelectedMemberIds(myLivingStakes.map(s => s.id))
@@ -87,6 +98,7 @@ export function GroupDetail({
       }
     }
   }, [searchParams, isMember, isAdmin, initialGroup, currentUser.id, deadMemberIds])
+
 
   const handleJoin = async () => {
     try {
@@ -142,7 +154,7 @@ export function GroupDetail({
       alert("Chuyển nhượng chân hụi thành công!")
       setTransferPhone("")
       setSelectedMemberIds([])
-      setIsTransferDialogOpen(false)
+      handleTransferOpenChange(false)
       router.refresh()
     } catch (error: any) {
       alert(error.message || "Có lỗi xảy ra")
@@ -358,7 +370,7 @@ export function GroupDetail({
       )}
       
       {/* Transfer Dialog Global */}
-      <Dialog open={isTransferDialogOpen} onOpenChange={setIsTransferDialogOpen}>
+      <Dialog open={isTransferDialogOpen} onOpenChange={handleTransferOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Chuyển nhượng Chân Hụi</DialogTitle>

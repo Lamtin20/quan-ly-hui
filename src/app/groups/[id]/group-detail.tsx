@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { QrCode, PlayCircle, ArrowRight, Loader2, AlertCircle, UserPlus, CalendarDays, CheckCircle2, UserCheck, ShieldAlert, Users, ChevronDown, ChevronUp } from "lucide-react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { hasPassedJoinDeadline, getJoinDeadlineDate, formatDate } from "@/lib/utils"
 
 type FullGroup = HuiGroup & {
@@ -21,6 +21,7 @@ type FullGroup = HuiGroup & {
     payments: (Payment & { user: User })[]
     bids: Bid[]
   })[]
+  transferHistories: (any)[]
 }
 
 const getBankBin = (bankName: string) => {
@@ -43,6 +44,7 @@ export function GroupDetail({
   currentUser: User
 }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [isStarting, setIsStarting] = useState(false)
   const [isActivating, setIsActivating] = useState(false)
   const [isJoining, setIsJoining] = useState(false)
@@ -52,6 +54,10 @@ export function GroupDetail({
     setExpandedSessions(prev => ({ ...prev, [id]: !prev[id] }))
   }
   const [sessionFilter, setSessionFilter] = useState<"ALL" | "DONE" | "CURRENT" | "PENDING">("CURRENT")
+  const [transferPhone, setTransferPhone] = useState("")
+  const [isTransferring, setIsTransferring] = useState(false)
+  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([])
+  const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false)
 
   // Real-time polling for updates
   useEffect(() => {
@@ -68,6 +74,19 @@ export function GroupDetail({
     .filter(s => s.status === "DONE")
     .map(s => s.winnerUserId)
     .filter(Boolean) as string[]
+
+  // Auto open transfer dialog
+  useEffect(() => {
+    if (searchParams.get("action") === "transfer" && (isMember || isAdmin) && initialGroup.status !== "FINISHED") {
+      const myLivingStakes = initialGroup.huiMembers.filter(hm => hm.userId === currentUser.id && !deadMemberIds.includes(hm.id))
+      if (myLivingStakes.length > 0) {
+        setSelectedMemberIds(myLivingStakes.map(s => s.id))
+        setIsTransferDialogOpen(true)
+      } else if (isAdmin) {
+        setIsTransferDialogOpen(true)
+      }
+    }
+  }, [searchParams, isMember, isAdmin, initialGroup, currentUser.id, deadMemberIds])
 
   const handleJoin = async () => {
     try {
@@ -111,12 +130,49 @@ export function GroupDetail({
     }
   }
 
+  const handleTransfer = async () => {
+    if (!transferPhone.trim() || selectedMemberIds.length === 0) {
+      alert("Vui lòng nhập số điện thoại và chọn ít nhất 1 chân hụi")
+      return
+    }
+    setIsTransferring(true)
+    try {
+      const { transferHuiMember } = await import("../../actions/groups")
+      await transferHuiMember(selectedMemberIds, transferPhone)
+      alert("Chuyển nhượng chân hụi thành công!")
+      setTransferPhone("")
+      setSelectedMemberIds([])
+      setIsTransferDialogOpen(false)
+      router.refresh()
+    } catch (error: any) {
+      alert(error.message || "Có lỗi xảy ra")
+    } finally {
+      setIsTransferring(false)
+    }
+  }
+
   const handleAdminQuickBid = async (sessionId: string) => {
     if (!isAdmin) return;
+    
+    // Tìm chân hụi đang sống của Admin
+    const session = initialGroup.sessions.find(s => s.id === sessionId);
+    if (!session) return;
+    
+    const previousSessions = initialGroup.sessions.filter(s => s.status === "DONE" && s.sessionNumber < session.sessionNumber);
+    const deadMemberIds = previousSessions.map(s => s.winnerMemberId).filter(Boolean) as string[];
+    const adminLivingStakes = initialGroup.huiMembers.filter(hm => hm.userId === currentUser.id && !deadMemberIds.includes(hm.id));
+    
+    if (adminLivingStakes.length === 0) {
+      alert("Admin không có chân hụi nào còn sống trong kỳ này!");
+      return;
+    }
+    
+    const memberId = adminLivingStakes[0].id; // Lấy chân đầu tiên
+    
     if (confirm("Chốt nhanh với giá Cao Nhất + 500đ ngay bây giờ?")) {
       setIsActivating(true)
       try {
-        await adminQuickBid(sessionId)
+        await adminQuickBid(sessionId, memberId)
         router.refresh()
       } catch (error: any) {
         alert(error.message || "Có lỗi xảy ra")
@@ -250,6 +306,90 @@ export function GroupDetail({
         </Card>
       )}
 
+      {/* Header Bán Hụi & Admin Action */}
+      {(isMember || isAdmin) && initialGroup.status !== "FINISHED" && (
+        <Card className="border-indigo-100 bg-white/70 backdrop-blur-md shadow-sm rounded-2xl overflow-hidden">
+          <CardContent className="flex flex-col md:flex-row items-center justify-between p-4">
+            <div className="flex items-center text-indigo-800 mb-4 md:mb-0">
+              <UserCheck className="w-6 h-6 mr-3 text-indigo-600" />
+              <div>
+                <h3 className="font-bold text-sm">Tuỳ chọn Chân hụi</h3>
+                <p className="text-xs text-indigo-700/90 font-medium">Bạn có thể bán hoặc chuyển nhượng toàn bộ các chân hụi bạn đang có.</p>
+              </div>
+            </div>
+            <Button 
+              className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium px-5"
+              onClick={() => {
+                // Lấy tất cả chân hụi đang sống của User
+                const myLivingStakes = initialGroup.huiMembers.filter(hm => hm.userId === currentUser.id && !deadMemberIds.includes(hm.id))
+                setSelectedMemberIds(myLivingStakes.map(s => s.id))
+                setIsTransferDialogOpen(true)
+              }}
+            >
+              Bán / Chuyển nhượng
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+      
+      {/* Transfer Dialog Global */}
+      <Dialog open={isTransferDialogOpen} onOpenChange={setIsTransferDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Chuyển nhượng Chân Hụi</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-slate-500">
+              Chọn các chân hụi bạn muốn bán. Người mua sẽ kế thừa toàn bộ lịch sử đóng/nhận hụi của những chân này.
+            </p>
+            
+            <div className="space-y-2 border rounded-xl p-3 bg-slate-50">
+              <label className="text-sm font-bold text-slate-700">Các chân hụi của bạn:</label>
+              {initialGroup.huiMembers.filter(hm => hm.userId === currentUser.id && !deadMemberIds.includes(hm.id)).length === 0 ? (
+                <p className="text-xs text-red-500">Bạn không có chân hụi nào còn sống.</p>
+              ) : (
+                initialGroup.huiMembers.filter(hm => hm.userId === currentUser.id && !deadMemberIds.includes(hm.id)).map(hm => (
+                  <div key={hm.id} className="flex items-center gap-2">
+                    <input 
+                      type="checkbox" 
+                      id={`transfer-${hm.id}`}
+                      checked={selectedMemberIds.includes(hm.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedMemberIds([...selectedMemberIds, hm.id])
+                        } else {
+                          setSelectedMemberIds(selectedMemberIds.filter(id => id !== hm.id))
+                        }
+                      }}
+                      className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                    />
+                    <label htmlFor={`transfer-${hm.id}`} className="text-sm cursor-pointer font-medium text-slate-600">
+                      Chân hụi {hm.name ? `(${hm.name})` : `(Mặc định)`}
+                    </label>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="space-y-2 mt-4">
+              <label className="text-sm font-bold text-slate-700">Số điện thoại người mua:</label>
+              <input 
+                type="text" 
+                value={transferPhone}
+                onChange={e => setTransferPhone(e.target.value)}
+                placeholder="Nhập SĐT đã đăng ký trên hệ thống"
+                className="w-full border rounded-lg p-2 text-sm"
+              />
+            </div>
+            
+            <Button onClick={handleTransfer} disabled={isTransferring || selectedMemberIds.length === 0} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white mt-4 rounded-xl">
+              {isTransferring ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Xác nhận Chuyển Nhượng
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
       {/* Admin Action: Start Group (OPEN -> RUNNING) */}
       {initialGroup.status === "OPEN" && isAdmin && (
         <Card className="border-indigo-100 bg-indigo-50/60 backdrop-blur-md shadow-sm rounded-2xl overflow-hidden">
@@ -407,6 +547,22 @@ export function GroupDetail({
                       </div>
                     </div>
 
+                    {/* Transfer Button */}
+                    {(isAdmin || u.id === currentUser.id) && initialGroup.status !== "FINISHED" && (
+                      <div className="mt-1 flex justify-end">
+                        <Button 
+                          variant="outline" size="sm" 
+                          className="h-6 text-[10px] px-2 rounded border-indigo-200 text-indigo-600 hover:bg-indigo-50"
+                          onClick={() => {
+                            setSelectedMemberIds([member.id]);
+                            setIsTransferDialogOpen(true);
+                          }}
+                        >
+                          Bán / Chuyển nhượng
+                        </Button>
+                      </div>
+                    )}
+
                     {/* Member balance details & expected profits */}
                     {initialGroup.status !== "OPEN" && (
                       <div className="pt-2 border-t border-slate-100/80 grid grid-cols-2 gap-2 text-[9px] font-semibold text-slate-500">
@@ -429,6 +585,25 @@ export function GroupDetail({
               })}
             </CardContent>
           </Card>
+
+          {/* Lịch sử Bán Hụi */}
+          {initialGroup.transferHistories && initialGroup.transferHistories.length > 0 && (
+            <Card className="border border-slate-200/60 bg-amber-50/50 shadow-sm rounded-2xl overflow-hidden mt-4">
+              <CardHeader className="border-b border-amber-100/50 bg-amber-100/30 py-3 px-4">
+                <CardTitle className="text-xs font-bold text-amber-800 flex items-center gap-2">
+                  Lịch sử Bán Hụi ({initialGroup.transferHistories.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-3 space-y-2 max-h-[300px] overflow-y-auto">
+                {initialGroup.transferHistories.map((hist: any) => (
+                  <div key={hist.id} className="text-[10px] text-slate-600 p-2 bg-white rounded-lg border border-amber-100">
+                    <strong>{hist.fromUser.fullName}</strong> đã bán cho <strong>{hist.toUser.fullName}</strong>
+                    <div className="text-slate-400 mt-1 text-[9px]">{formatDate(new Date(hist.transferDate))}</div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Sessions Panel */}

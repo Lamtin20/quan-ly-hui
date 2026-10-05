@@ -37,8 +37,8 @@ export function BiddingArena({
   previousSessions = []
 }: any) {
   const router = useRouter()
-  const [bidAmount, setBidAmount] = useState("")
-  const [isWhiteTicket, setIsWhiteTicket] = useState(false)
+  const [bidAmounts, setBidAmounts] = useState<Record<string, string>>({})
+  const [isWhiteTickets, setIsWhiteTickets] = useState<Record<string, boolean>>({})
   const [loading, setLoading] = useState(false)
   const [sphereLoading, setSphereLoading] = useState(false)
   
@@ -59,8 +59,10 @@ export function BiddingArena({
   }, [session.id, currentUser.id])
 
   const isAdmin = currentUser.role === "ADMIN"
-  const isLiving = !deadIds.includes(currentUser.id)
-  const myBid = session.bids.find((b: any) => b.userId === currentUser.id)
+  const myStakes = session.huiGroup.huiMembers.filter((hm: any) => hm.userId === currentUser.id)
+  const myLivingStakes = myStakes.filter((hm: any) => !deadIds.includes(hm.id))
+  // Dành cho Tie-breaker
+  const tieBreakerStakes = myStakes.filter((hm: any) => session.tieBreakerData?.tiedMemberIds?.includes(hm.id))
 
   const maxBid = (session.huiGroup.amount * session.huiGroup.maxBidPercentage) / 100
 
@@ -101,11 +103,11 @@ export function BiddingArena({
     }, 150)
   }
 
-  const handleBidSubmit = async (e: React.FormEvent) => {
+  const handleBidSubmit = async (e: React.FormEvent, memberId: string) => {
     e.preventDefault()
     setLoading(true)
     try {
-      await submitBid(session.id, Number(bidAmount), isWhiteTicket)
+      await submitBid(session.id, memberId, Number(bidAmounts[memberId] || "0"), isWhiteTickets[memberId] || false)
     } catch (err: any) {
       alert(err.message)
     } finally {
@@ -113,14 +115,14 @@ export function BiddingArena({
     }
   }
 
-  const handlePickSphere = async (index: number) => {
+  const handlePickSphere = async (index: number, memberId: string) => {
     setSelectedBallIndex(index)
     if (typeof window !== "undefined") {
       localStorage.setItem(`tie-breaker-ball-${session.id}-${currentUser.id}`, index.toString())
     }
     setSphereLoading(true)
     try {
-      await pickSphere(session.id)
+      await pickSphere(session.id, memberId)
     } catch(err: any) {
       alert(err.message)
     } finally {
@@ -196,71 +198,80 @@ export function BiddingArena({
   const renderBiddingState = () => (
     <div className="space-y-6">
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Form nhập giá */}
-        {isLiving && !myBid && (
-          <Card className="border-indigo-100/60 shadow-lg bg-white/90 backdrop-blur-md rounded-3xl overflow-hidden">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                <Coins className="w-5 h-5 text-indigo-500" /> Bỏ Thăm Kêu Hụi
-              </CardTitle>
-              <CardDescription className="text-xs">Nhập mức giá bạn muốn kêu cho kỳ này.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleBidSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-slate-600 text-xs font-semibold uppercase tracking-wider block">Mức kêu tối đa: {formatVND(maxBid)}</Label>
-                  <Input 
-                    type="number" 
-                    value={bidAmount} 
-                    onChange={e => {
-                      setBidAmount(e.target.value)
-                      setIsWhiteTicket(false)
-                    }} 
-                    placeholder="VD: 150000"
-                    disabled={isWhiteTicket}
-                    className="rounded-2xl border-slate-200 py-6 text-lg font-semibold text-slate-800"
-                  />
-                </div>
-                <div className="flex items-center space-x-3 p-3 bg-slate-50 border rounded-2xl">
-                  <input 
-                    type="checkbox" 
-                    id="whiteTicket" 
-                    checked={isWhiteTicket} 
-                    onChange={e => {
-                      setIsWhiteTicket(e.target.checked)
-                      if(e.target.checked) setBidAmount("")
-                    }}
-                    className="w-5 h-5 rounded-lg border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                  />
-                  <Label htmlFor="whiteTicket" className="text-xs font-bold text-slate-600 cursor-pointer flex-1">
-                    Tôi bỏ Phiếu Trắng (Không kêu giá)
-                  </Label>
-                </div>
-                <Button type="submit" disabled={loading || (!bidAmount && !isWhiteTicket)} className="w-full py-6 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 shadow-md font-bold text-sm transition-all active:scale-[0.98]">
-                  Xác nhận Bỏ Thăm
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        )}
+        {/* Danh sách Form nhập giá (Hỗ trợ 1 người nhiều chân hụi) */}
+        {myLivingStakes.map((stake: any) => {
+          const myBid = session.bids.find((b: any) => b.huiMemberId === stake.id)
+          const canEdit = myBid ? (Date.now() - new Date(myBid.createdAt).getTime() <= 2 * 60 * 60 * 1000) : false
+          const hoursLeft = myBid ? Math.max(0, 2 - (Date.now() - new Date(myBid.createdAt).getTime()) / (1000 * 60 * 60)) : 0
 
-        {/* Trạng thái của mình */}
-        {myBid && (
-          <Card className="border-emerald-100 shadow-lg bg-emerald-50/40 backdrop-blur-sm rounded-3xl">
-            <CardContent className="flex flex-col items-center justify-center p-8 text-center h-full">
-              <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mb-4 shadow-inner">
-                <Check className="w-8 h-8 text-emerald-600" />
-              </div>
-              <h3 className="text-xl font-bold text-emerald-800">Đã gửi thăm thành công!</h3>
-              <p className="text-emerald-700/80 text-sm mt-2">
-                Bạn đã kêu: <span className="font-bold">{myBid.isWhiteTicket ? "Phiếu Trắng" : formatVND(myBid.amount)}</span>
-              </p>
-              <p className="text-xs text-emerald-600/60 mt-4 flex items-center gap-1.5 font-medium">
-                <CircleDashed className="w-3.5 h-3.5 animate-spin" /> Đang chờ những người khác bỏ thăm...
-              </p>
-            </CardContent>
-          </Card>
-        )}
+          if (myBid && !canEdit) {
+            return (
+              <Card key={stake.id} className="border-emerald-100 shadow-lg bg-emerald-50/40 backdrop-blur-sm rounded-3xl">
+                <CardContent className="flex flex-col items-center justify-center p-8 text-center h-full">
+                  <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mb-4 shadow-inner">
+                    <Check className="w-8 h-8 text-emerald-600" />
+                  </div>
+                  <h3 className="text-xl font-bold text-emerald-800">Đã gửi thăm thành công!</h3>
+                  <p className="text-emerald-700/80 text-sm mt-2">
+                    {stake.name ? `[${stake.name}] ` : ''}Bạn đã kêu: <span className="font-bold">{myBid.isWhiteTicket ? "Phiếu Trắng" : formatVND(myBid.amount)}</span>
+                  </p>
+                  <p className="text-xs text-emerald-600/60 mt-4 flex items-center gap-1.5 font-medium">
+                    <CircleDashed className="w-3.5 h-3.5 animate-spin" /> Đang chờ...
+                  </p>
+                </CardContent>
+              </Card>
+            )
+          }
+
+          return (
+            <Card key={stake.id} className="border-indigo-100/60 shadow-lg bg-white/90 backdrop-blur-md rounded-3xl overflow-hidden">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                  <Coins className="w-5 h-5 text-indigo-500" /> {myBid ? "Sửa Phiếu Kêu Hụi" : "Bỏ Thăm Kêu Hụi"} {stake.name ? `(${stake.name})` : ''}
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  {myBid ? `Bạn còn ${Math.floor(hoursLeft * 60)} phút để sửa phiếu.` : "Nhập mức giá bạn muốn kêu cho kỳ này."}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={(e) => handleBidSubmit(e, stake.id)} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-slate-600 text-xs font-semibold uppercase tracking-wider block">Mức kêu tối đa: {formatVND(maxBid)}</Label>
+                    <Input 
+                      type="number" 
+                      value={bidAmounts[stake.id] !== undefined ? bidAmounts[stake.id] : (myBid ? myBid.amount.toString() : "")} 
+                      onChange={e => {
+                        setBidAmounts(prev => ({...prev, [stake.id]: e.target.value}))
+                        setIsWhiteTickets(prev => ({...prev, [stake.id]: false}))
+                      }} 
+                      placeholder="VD: 150000"
+                      disabled={isWhiteTickets[stake.id]}
+                      className="rounded-2xl border-slate-200 py-6 text-lg font-semibold text-slate-800"
+                    />
+                  </div>
+                  <div className="flex items-center space-x-3 p-3 bg-slate-50 border rounded-2xl">
+                    <input 
+                      type="checkbox" 
+                      id={`whiteTicket-${stake.id}`} 
+                      checked={isWhiteTickets[stake.id] !== undefined ? isWhiteTickets[stake.id] : (myBid ? myBid.isWhiteTicket : false)} 
+                      onChange={e => {
+                        setIsWhiteTickets(prev => ({...prev, [stake.id]: e.target.checked}))
+                        if(e.target.checked) setBidAmounts(prev => ({...prev, [stake.id]: ""}))
+                      }}
+                      className="w-5 h-5 rounded-lg border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                    />
+                    <Label htmlFor={`whiteTicket-${stake.id}`} className="text-xs font-bold text-slate-600 cursor-pointer flex-1">
+                      Tôi bỏ Phiếu Trắng
+                    </Label>
+                  </div>
+                  <Button type="submit" disabled={loading} className="w-full py-6 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 shadow-md font-bold text-sm transition-all active:scale-[0.98]">
+                    {myBid ? "Cập nhật Thăm" : "Xác nhận Bỏ Thăm"}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          )
+        })}
 
         {/* Danh sách người đã bỏ */}
         <Card className="border-indigo-100/60 shadow-lg bg-white/90 backdrop-blur-md rounded-3xl overflow-hidden">
@@ -284,7 +295,7 @@ export function BiddingArena({
           </CardHeader>
           <CardContent>
             <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
-              {session.huiGroup.huiMembers.filter((hm:any) => !deadIds.includes(hm.userId)).map((hm: any) => {
+              {session.huiGroup.huiMembers.filter((hm:any) => !deadIds.includes(hm.id)).map((hm: any) => {
                 const userBid = session.bids.find((b: any) => b.userId === hm.userId)
                 const hasBid = !!userBid
                 return (

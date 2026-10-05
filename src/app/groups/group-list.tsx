@@ -397,6 +397,14 @@ export function GroupList({
                               )
                             )}
                             
+                            {(isMember || isAdmin) && group.status !== 'FINISHED' && (
+                              <a href={`/groups/${group.id}?action=transfer`}>
+                                <Button variant="outline" size="sm" className="rounded-lg border-indigo-200 text-indigo-600 hover:bg-indigo-50 font-medium">
+                                  Bán hụi
+                                </Button>
+                              </a>
+                            )}
+                            
                             {(isMember || isAdmin) && (
                               <a href={`/groups/${group.id}`}>
                                 <Button variant="outline" size="sm" className="rounded-lg border-slate-200 hover:bg-slate-50 font-medium text-slate-700">

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { revalidatePath } from "next/cache"
 import { getUser } from "@/lib/server-auth"
 
-export async function submitBid(sessionId: string, amount: number, isWhiteTicket: boolean) {
+export async function submitBid(sessionId: string, memberId: string, amount: number, isWhiteTicket: boolean) {
   const user = await getUser()
   if (!user) throw new Error("Unauthorized")
 
@@ -17,8 +17,9 @@ export async function submitBid(sessionId: string, amount: number, isWhiteTicket
     throw new Error("Kỳ hụi không trong thời gian kêu giá")
   }
 
-  if (!session.huiGroup.huiMembers.some(hm => hm.userId === user.id)) {
-    throw new Error("Bạn không nằm trong dây hụi này")
+  const member = session.huiGroup.huiMembers.find(hm => hm.id === memberId)
+  if (!member || member.userId !== user.id) {
+    throw new Error("Chân hụi không hợp lệ hoặc bạn không có quyền")
   }
 
   const maxBid = (session.huiGroup.amount * session.huiGroup.maxBidPercentage) / 100
@@ -26,9 +27,20 @@ export async function submitBid(sessionId: string, amount: number, isWhiteTicket
     throw new Error(`Giá kêu không được vượt quá ${session.huiGroup.maxBidPercentage}% (${maxBid} đ)`)
   }
 
+  const existingBid = await prisma.bid.findUnique({
+    where: { sessionId_huiMemberId: { sessionId, huiMemberId: memberId } }
+  })
+
+  if (existingBid) {
+    const hoursSinceBid = (Date.now() - existingBid.createdAt.getTime()) / (1000 * 60 * 60)
+    if (hoursSinceBid > 2) {
+      throw new Error("Đã hết thời gian 2 tiếng để sửa phiếu")
+    }
+  }
+
   const newBid = await prisma.bid.upsert({
     where: {
-      sessionId_userId: { sessionId, userId: user.id }
+      sessionId_huiMemberId: { sessionId, huiMemberId: memberId }
     },
     update: {
       amount: isWhiteTicket ? 0 : amount,
@@ -37,6 +49,7 @@ export async function submitBid(sessionId: string, amount: number, isWhiteTicket
     create: {
       sessionId,
       userId: user.id,
+      huiMemberId: memberId,
       amount: isWhiteTicket ? 0 : amount,
       isWhiteTicket
     }
@@ -45,25 +58,25 @@ export async function submitBid(sessionId: string, amount: number, isWhiteTicket
   // Tính toán tiến độ bỏ thăm để báo Telegram
   const previousSessions = await prisma.huiSession.findMany({
     where: { huiGroupId: session.huiGroupId, status: "DONE" },
-    select: { winnerUserId: true }
+    select: { winnerMemberId: true, winnerUserId: true }
   })
   
-  const deadIds = previousSessions.map(s => s.winnerUserId).filter(Boolean) as string[]
-  const livingUserIds = session.huiGroup.huiMembers
-    .map(hm => hm.userId)
-    .filter(id => !deadIds.includes(id))
+  // Hỗ trợ cả dữ liệu cũ (chưa có winnerMemberId) và dữ liệu mới
+  const deadMemberIds = previousSessions.map(s => s.winnerMemberId).filter(Boolean) as string[]
+  
+  const livingMembers = session.huiGroup.huiMembers.filter(hm => !deadMemberIds.includes(hm.id))
+  const livingMemberIds = livingMembers.map(hm => hm.id)
     
-  // Lấy danh sách bid mới nhất
   const currentBids = await prisma.bid.findMany({
     where: { sessionId }
   })
   
-  const biddedLivingUserIds = currentBids
-    .filter(b => livingUserIds.includes(b.userId))
-    .map(b => b.userId)
+  const biddedLivingMemberIds = currentBids
+    .filter(b => b.huiMemberId && livingMemberIds.includes(b.huiMemberId))
+    .map(b => b.huiMemberId)
     
-  const totalLiving = livingUserIds.length
-  const biddedCount = biddedLivingUserIds.length
+  const totalLiving = livingMemberIds.length
+  const biddedCount = biddedLivingMemberIds.length
   const pendingCount = totalLiving - biddedCount
   
   const moneyFormatter = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
@@ -72,17 +85,15 @@ export async function submitBid(sessionId: string, amount: number, isWhiteTicket
   const msgText = `📢 <b>CÓ NGƯỜI VỪA BỎ THĂM</b>\n\n` +
     `📍 <b>Dây hụi:</b> ${session.huiGroup.name}\n` +
     `📅 <b>Kỳ số:</b> ${session.sessionNumber}\n` +
-    `👤 <b>Người bỏ:</b> ${user.fullName}\n` +
+    `👤 <b>Người bỏ:</b> ${user.fullName} ${member.name ? `(${member.name})` : ''}\n` +
     `💰 <b>Giá kêu:</b> ${bidAmountText}\n\n` +
     `📊 <b>Tiến độ:</b>\n` +
-    `✅ Đã bỏ: ${biddedCount}/${totalLiving} người\n` +
-    `⏳ Chưa bỏ: ${pendingCount} người`;
+    `✅ Đã bỏ: ${biddedCount}/${totalLiving} phần\n` +
+    `⏳ Chưa bỏ: ${pendingCount} phần`;
     
   const { sendTelegramMessage } = await import("@/lib/telegram");
-  // Gọi bất đồng bộ không await để không làm chậm trải nghiệm UI
   sendTelegramMessage(msgText).catch(console.error);
 
-  // Tự động đóng kỳ hụi nếu tất cả thành viên sống đã bỏ thăm xong
   await autoCloseIfAllBidded(sessionId)
 
   revalidatePath("/", "layout")
@@ -101,59 +112,63 @@ export async function closeBidding(sessionId: string) {
   
   const previousSessions = await prisma.huiSession.findMany({
     where: { huiGroupId: session.huiGroupId, status: "DONE" },
-    select: { winnerUserId: true }
+    select: { winnerMemberId: true }
   })
-  const deadIds = previousSessions.map(s => s.winnerUserId).filter(Boolean) as string[]
+  const deadMemberIds = previousSessions.map(s => s.winnerMemberId).filter(Boolean) as string[]
 
-  const validBids = session.bids.filter(b => !deadIds.includes(b.userId))
+  const validBids = session.bids.filter(b => b.huiMemberId && !deadMemberIds.includes(b.huiMemberId))
   
   if (validBids.length === 0) {
-    throw new Error("Chưa có hụi viên sống nào kêu giá")
+    throw new Error("Chưa có chân hụi sống nào kêu giá")
   }
   
   const maxAmount = Math.max(...validBids.map(b => b.amount))
   const topBids = validBids.filter(b => b.amount === maxAmount)
   
   if (topBids.length === 1) {
-    await finalizeSession(sessionId, topBids[0].userId, maxAmount)
+    await finalizeSession(sessionId, topBids[0].huiMemberId!, maxAmount)
   } else {
-    const tiedUserIds = topBids.map(b => b.userId)
+    const tiedMemberIds = topBids.map(b => b.huiMemberId!)
     await prisma.huiSession.update({
       where: { id: sessionId },
       data: {
         status: "TIE_BREAKER",
-        tieBreakerData: { tiedUserIds, selected: {} }
+        tieBreakerData: { tiedMemberIds, selected: {} }
       }
     })
   }
   revalidatePath("/", "layout")
 }
 
-export async function pickSphere(sessionId: string) {
+export async function pickSphere(sessionId: string, memberId: string) {
   const user = await getUser()
   if (!user) throw new Error("Unauthorized")
 
   const session = await prisma.huiSession.findUnique({
-    where: { id: sessionId }
+    where: { id: sessionId },
+    include: { huiGroup: { include: { huiMembers: true } } }
   })
   
   if (!session || session.status !== "TIE_BREAKER") throw new Error("Kỳ hụi không ở trạng thái bốc thăm")
   
+  const member = session.huiGroup.huiMembers.find(hm => hm.id === memberId)
+  if (!member || member.userId !== user.id) throw new Error("Bạn không có quyền")
+  
   const data = session.tieBreakerData as any
-  if (!data || !data.tiedUserIds.includes(user.id)) throw new Error("Bạn không nằm trong danh sách bốc thăm")
-  if (data.selected[user.id]) throw new Error("Bạn đã chọn quả cầu rồi")
+  if (!data || !data.tiedMemberIds.includes(memberId)) throw new Error("Chân hụi này không nằm trong danh sách bốc thăm")
+  if (data.selected[memberId]) throw new Error("Chân hụi này đã chọn quả cầu rồi")
 
   let randomNum = Math.floor(Math.random() * 100) + 1
   while (Object.values(data.selected).includes(randomNum)) {
     randomNum = Math.floor(Math.random() * 100) + 1
   }
 
-  data.selected[user.id] = randomNum
+  data.selected[memberId] = randomNum
 
-  if (Object.keys(data.selected).length === data.tiedUserIds.length) {
-    let winnerId = data.tiedUserIds[0]
+  if (Object.keys(data.selected).length === data.tiedMemberIds.length) {
+    let winnerId = data.tiedMemberIds[0]
     let maxNum = data.selected[winnerId]
-    for (const uid of data.tiedUserIds) {
+    for (const uid of data.tiedMemberIds) {
       if (data.selected[uid] > maxNum) {
         maxNum = data.selected[uid]
         winnerId = uid
@@ -162,11 +177,11 @@ export async function pickSphere(sessionId: string) {
     
     await prisma.huiSession.update({
       where: { id: sessionId },
-      data: { tieBreakerData: data } // Lưu kết quả
+      data: { tieBreakerData: data } 
     })
     
     const bid = await prisma.bid.findUnique({
-      where: { sessionId_userId: { sessionId, userId: winnerId } }
+      where: { sessionId_huiMemberId: { sessionId, huiMemberId: winnerId } }
     })
     
     await finalizeSession(sessionId, winnerId, bid!.amount)
@@ -179,7 +194,7 @@ export async function pickSphere(sessionId: string) {
   revalidatePath("/", "layout")
 }
 
-async function finalizeSession(sessionId: string, winnerUserId: string, bidAmount: number) {
+async function finalizeSession(sessionId: string, winnerMemberId: string, bidAmount: number) {
   const session = await prisma.huiSession.findUnique({
     where: { id: sessionId },
     include: { huiGroup: { include: { huiMembers: true } } }
@@ -188,28 +203,31 @@ async function finalizeSession(sessionId: string, winnerUserId: string, bidAmoun
   if (!session) return
   
   const group = session.huiGroup
+  const winnerMember = group.huiMembers.find(m => m.id === winnerMemberId)
+  if (!winnerMember) return
   
   const previousSessions = await prisma.huiSession.findMany({
     where: { huiGroupId: group.id, status: "DONE" },
-    select: { winnerUserId: true }
+    select: { winnerMemberId: true }
   })
-  const deadIds = previousSessions.map(s => s.winnerUserId).filter(Boolean) as string[]
+  const deadMemberIds = previousSessions.map(s => s.winnerMemberId).filter(Boolean) as string[]
 
   const N = group.totalSlots
   const A = group.amount
   const B = bidAmount
-  const D = deadIds.length
+  const D = deadMemberIds.length
 
   const livingPayers = N - D - 1
   const winnerReceivedAmount = (A - B) * livingPayers + (A * D)
 
-  const winner = await prisma.user.findUnique({ where: { id: winnerUserId } });
+  const winnerUser = await prisma.user.findUnique({ where: { id: winnerMember.userId } });
 
   await prisma.$transaction(async (tx) => {
-    const updatedSession = await tx.huiSession.update({
+    await tx.huiSession.update({
       where: { id: sessionId },
       data: {
-        winnerUserId,
+        winnerUserId: winnerMember.userId,
+        winnerMemberId,
         bidAmount,
         winnerReceivedAmount,
         status: "DONE"
@@ -217,13 +235,14 @@ async function finalizeSession(sessionId: string, winnerUserId: string, bidAmoun
     })
 
     const payments = group.huiMembers.map(hm => {
-      const isDead = deadIds.includes(hm.userId)
-      if (hm.userId === winnerUserId) return null
+      const isDead = deadMemberIds.includes(hm.id)
+      if (hm.id === winnerMemberId) return null
       
       const amountToPay = isDead ? A : (A - B)
       return {
         sessionId,
         userId: hm.userId,
+        huiMemberId: hm.id,
         isDead,
         amountToPay,
         paidStatus: "UNPAID"
@@ -258,20 +277,20 @@ async function finalizeSession(sessionId: string, winnerUserId: string, bidAmoun
     return map[name] || name;
   };
 
-  const bin = winner?.bankName ? getBankBin(winner.bankName) : '';
-  const qrUrl = bin && winner?.bankAccountNumber 
-    ? `https://img.vietqr.io/image/${bin}-${winner.bankAccountNumber}-compact2.png` 
+  const bin = winnerUser?.bankName ? getBankBin(winnerUser.bankName) : '';
+  const qrUrl = bin && winnerUser?.bankAccountNumber 
+    ? `https://img.vietqr.io/image/${bin}-${winnerUser.bankAccountNumber}-compact2.png` 
     : '';
 
   const moneyFormatter = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
   const msgText = `🎉 <b>KẾT QUẢ KHUI HỤI</b> 🎉\n\n` +
     `📍 <b>Dây hụi:</b> ${group.name}\n` +
     `📅 <b>Kỳ số:</b> ${session.sessionNumber}\n` +
-    `🏆 <b>Người hốt:</b> ${winner?.fullName}\n` +
+    `🏆 <b>Người hốt:</b> ${winnerUser?.fullName} ${winnerMember.name ? `(${winnerMember.name})` : ''}\n` +
     `💰 <b>Thực nhận:</b> ${moneyFormatter.format(winnerReceivedAmount)}\n\n` +
     `🏦 <b>Thông tin chuyển khoản:</b>\n` +
-    `- Ngân hàng: ${winner?.bankName || 'Chưa cập nhật'}\n` +
-    `- STK: <code>${winner?.bankAccountNumber || 'Chưa cập nhật'}</code>\n` +
+    `- Ngân hàng: ${winnerUser?.bankName || 'Chưa cập nhật'}\n` +
+    `- STK: <code>${winnerUser?.bankAccountNumber || 'Chưa cập nhật'}</code>\n` +
     (qrUrl ? `\n<a href="${qrUrl}">Mở mã QR chuyển khoản</a>` : '');
 
   await sendTelegramMessage(msgText);
@@ -286,40 +305,40 @@ export async function autoCloseIfAllBidded(sessionId: string) {
 
   const previousSessions = await prisma.huiSession.findMany({
     where: { huiGroupId: session.huiGroupId, status: "DONE" },
-    select: { winnerUserId: true }
+    select: { winnerMemberId: true }
   })
-  const deadIds = previousSessions.map(s => s.winnerUserId).filter(Boolean) as string[]
+  const deadMemberIds = previousSessions.map(s => s.winnerMemberId).filter(Boolean) as string[]
 
-  const livingUserIds = session.huiGroup.huiMembers
-    .map(hm => hm.userId)
-    .filter(id => !deadIds.includes(id))
+  const livingMemberIds = session.huiGroup.huiMembers
+    .map(hm => hm.id)
+    .filter(id => !deadMemberIds.includes(id))
 
-  const biddedLivingUserIds = session.bids
-    .filter(b => livingUserIds.includes(b.userId))
-    .map(b => b.userId)
+  const biddedLivingMemberIds = session.bids
+    .filter(b => b.huiMemberId && livingMemberIds.includes(b.huiMemberId))
+    .map(b => b.huiMemberId)
 
-  const allLivingHaveBidded = livingUserIds.every(id => biddedLivingUserIds.includes(id))
-  if (allLivingHaveBidded && livingUserIds.length > 0) {
-    const validBids = session.bids.filter(b => livingUserIds.includes(b.userId))
+  const allLivingHaveBidded = livingMemberIds.every(id => biddedLivingMemberIds.includes(id))
+  if (allLivingHaveBidded && livingMemberIds.length > 0) {
+    const validBids = session.bids.filter(b => b.huiMemberId && livingMemberIds.includes(b.huiMemberId))
     const maxAmount = Math.max(...validBids.map(b => b.amount))
     const topBids = validBids.filter(b => b.amount === maxAmount)
     
     if (topBids.length === 1) {
-      await finalizeSession(sessionId, topBids[0].userId, maxAmount)
+      await finalizeSession(sessionId, topBids[0].huiMemberId!, maxAmount)
     } else {
-      const tiedUserIds = topBids.map(b => b.userId)
+      const tiedMemberIds = topBids.map(b => b.huiMemberId!)
       await prisma.huiSession.update({
         where: { id: sessionId },
         data: {
           status: "TIE_BREAKER",
-          tieBreakerData: { tiedUserIds, selected: {} }
+          tieBreakerData: { tiedMemberIds, selected: {} }
         }
       })
     }
   }
 }
 
-export async function adminQuickBid(sessionId: string) {
+export async function adminQuickBid(sessionId: string, memberId: string) {
   const user = await getUser()
   if (!user || user.role !== "ADMIN") throw new Error("Unauthorized")
 
@@ -335,8 +354,9 @@ export async function adminQuickBid(sessionId: string) {
     throw new Error("Kỳ hụi không trong thời gian kêu giá")
   }
 
-  if (!session.huiGroup.huiMembers.some(hm => hm.userId === user.id)) {
-    throw new Error("Admin không nằm trong dây hụi này, không thể hốt nhanh.")
+  const member = session.huiGroup.huiMembers.find(hm => hm.id === memberId)
+  if (!member || member.userId !== user.id) {
+    throw new Error("Admin không sở hữu chân hụi này, không thể hốt nhanh.")
   }
 
   const highestBid = session.bids.length > 0 ? Math.max(...session.bids.map(b => b.amount)) : 0
@@ -347,7 +367,7 @@ export async function adminQuickBid(sessionId: string) {
 
   await prisma.bid.upsert({
     where: {
-      sessionId_userId: { sessionId, userId: user.id }
+      sessionId_huiMemberId: { sessionId, huiMemberId: memberId }
     },
     update: {
       amount: newBid,
@@ -356,6 +376,7 @@ export async function adminQuickBid(sessionId: string) {
     create: {
       sessionId,
       userId: user.id,
+      huiMemberId: memberId,
       amount: newBid,
       isWhiteTicket: false
     }

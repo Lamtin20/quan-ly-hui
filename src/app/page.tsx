@@ -344,9 +344,16 @@ export default async function DashboardPage() {
 
                 <div className="bg-slate-50/60 px-5 py-2.5 border-t border-slate-100 flex justify-between items-center">
                   <span className="text-[10px] text-slate-400 font-bold uppercase">Trạng thái: {group.status}</span>
-                  <Link href={`/groups/${group.id}`} prefetch={true} className="text-xs font-bold text-indigo-650 hover:text-indigo-850 flex items-center gap-1 active:scale-[0.98]">
-                    Vào chi tiết <ArrowRight className="w-3.5 h-3.5" />
-                  </Link>
+                  <div className="flex items-center gap-3">
+                    {group.status !== "FINISHED" && (
+                      <Link href={`/groups/${group.id}?action=transfer`} prefetch={true} className="text-[11px] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 active:scale-[0.98] border border-indigo-150 px-2.5 py-1 rounded-lg bg-indigo-50/50 hover:bg-indigo-100 transition-colors">
+                        Bán hụi
+                      </Link>
+                    )}
+                    <Link href={`/groups/${group.id}`} prefetch={true} className="text-xs font-bold text-indigo-650 hover:text-indigo-850 flex items-center gap-1 active:scale-[0.98]">
+                      Vào chi tiết <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
                 </div>
               </Card>
             ))}

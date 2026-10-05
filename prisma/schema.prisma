@@ -24,6 +24,8 @@ model User {
   huiMembers        HuiMember[]
   payments          Payment[]
   bids              Bid[]
+  transfersSent     TransferHistory[] @relation("FromUser")
+  transfersReceived TransferHistory[] @relation("ToUser")
   createdAt         DateTime     @default(now())
 }
 
@@ -38,8 +40,9 @@ model HuiGroup {
   totalSlots       Int          // Tổng số phần (chân hụi)
   startDate        DateTime
   status           String       @default("OPEN") // HuiStatus: OPEN, RUNNING, FINISHED
-  huiMembers       HuiMember[]
+  huiMembers        HuiMember[]
   sessions         HuiSession[]
+  transferHistories TransferHistory[]
   createdAt        DateTime     @default(now())
 }
 
@@ -49,7 +52,11 @@ model HuiMember {
   huiGroup   HuiGroup @relation(fields: [huiGroupId], references: [id], onDelete: Cascade)
   userId     String   @db.ObjectId
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  slots      Int      @default(1)
+  slots      Int      @default(1) // (Không còn dùng nữa, thay bằng nhiều record HuiMember)
+  name       String?  // Tên chân hụi (VD: Chân 1, Chân 2)
+  bids       Bid[]
+  payments   Payment[]
+  createdAt  DateTime @default(now())
 }
 
 model HuiSession {
@@ -58,7 +65,8 @@ model HuiSession {
   huiGroup             HuiGroup  @relation(fields: [huiGroupId], references: [id], onDelete: Cascade)
   sessionNumber        Int
   openDate             DateTime  @default(now())
-  winnerUserId         String?   @db.ObjectId
+  winnerUserId         String?   @db.ObjectId // (Giữ lại để tương thích ngược)
+  winnerMemberId       String?   @db.ObjectId // (ID chân hụi trúng)
   bidAmount            Float     @default(0) // Giá bỏ thăm trúng
   winnerReceivedAmount Float     @default(0) // Thực nhận
   status               String    @default("BIDDING") // SessionStatus: BIDDING, TIE_BREAKER, DONE
@@ -73,12 +81,15 @@ model Bid {
   session       HuiSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   userId        String     @db.ObjectId
   user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  huiMemberId   String?    @db.ObjectId
+  huiMember     HuiMember? @relation(fields: [huiMemberId], references: [id], onDelete: Cascade)
   amount        Float      // Số tiền kêu
   isWhiteTicket Boolean    @default(false) // Phiếu trắng (không kêu)
   tieBreakerNum Int?       // Số điểm bốc thăm được nếu bị rơi vào vòng Tie-breaker
   createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt @default(now()) // Dùng cho check 2 tiếng sửa phiếu
 
-  @@unique([sessionId, userId])
+  @@unique([sessionId, huiMemberId]) // 1 chân hụi chỉ bỏ 1 phiếu trong 1 kỳ
 }
 
 model Payment {
@@ -87,6 +98,8 @@ model Payment {
   session     HuiSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   userId      String     @db.ObjectId
   user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  huiMemberId String?    @db.ObjectId
+  huiMember   HuiMember? @relation(fields: [huiMemberId], references: [id], onDelete: Cascade)
   isDead      Boolean    @default(false) // Hụi chết/sống
   amountToPay Float
   paidStatus  String     @default("UNPAID") // PaidStatus: UNPAID, PAID
@@ -97,4 +110,16 @@ model SystemSetting {
   id    String @id @default(auto()) @map("_id") @db.ObjectId
   key   String @unique
   value String
+}
+
+model TransferHistory {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  huiGroupId   String   @db.ObjectId
+  huiGroup     HuiGroup @relation(fields: [huiGroupId], references: [id], onDelete: Cascade)
+  fromUserId   String   @db.ObjectId
+  fromUser     User     @relation("FromUser", fields: [fromUserId], references: [id])
+  toUserId     String   @db.ObjectId
+  toUser       User     @relation("ToUser", fields: [toUserId], references: [id])
+  memberId     String   @db.ObjectId
+  transferDate DateTime @default(now())
 }

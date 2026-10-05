@@ -24,6 +24,10 @@ export default async function GroupDetailPage(props: { params: Promise<{ id: str
           bids: true
         },
         orderBy: { sessionNumber: "asc" }
+      },
+      transferHistories: {
+        include: { fromUser: true, toUser: true },
+        orderBy: { transferDate: "desc" }
       }
     }
   })

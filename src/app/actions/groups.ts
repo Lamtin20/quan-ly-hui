@@ -219,3 +219,52 @@ export async function getHuiGroups() {
     orderBy: { createdAt: "desc" }
   })
 }
+
+export async function transferHuiMember(memberIds: string[], toPhone: string) {
+  const user = await requireUser()
+  
+  if (!memberIds || memberIds.length === 0) throw new Error("Chưa chọn chân hụi nào")
+
+  // Tìm người mua
+  const buyer = await prisma.user.findUnique({
+    where: { phone: toPhone }
+  })
+  if (!buyer) throw new Error("Không tìm thấy tài khoản người mua với SĐT này")
+
+  await prisma.$transaction(async (tx) => {
+    for (const memberId of memberIds) {
+      const member = await tx.huiMember.findUnique({
+        where: { id: memberId },
+        include: { huiGroup: true }
+      })
+      if (!member) throw new Error(`Không tìm thấy chân hụi ${memberId}`)
+
+      // Chỉ Admin hoặc chính chủ mới được bán
+      if (user.role !== "ADMIN" && member.userId !== user.id) {
+        throw new Error("Bạn không có quyền chuyển nhượng chân hụi này")
+      }
+
+      if (buyer.id === member.userId) {
+        throw new Error("Không thể chuyển nhượng cho chính mình")
+      }
+
+      // Lưu lịch sử
+      await tx.transferHistory.create({
+        data: {
+          huiGroupId: member.huiGroupId,
+          fromUserId: member.userId,
+          toUserId: buyer.id,
+          memberId: member.id
+        }
+      })
+
+      // Đổi chủ
+      await tx.huiMember.update({
+        where: { id: memberId },
+        data: { userId: buyer.id }
+      })
+    }
+  })
+
+  revalidatePath("/", "layout")
+}

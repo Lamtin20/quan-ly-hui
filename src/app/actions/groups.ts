@@ -248,13 +248,20 @@ export async function transferHuiMember(memberIds: string[], toPhone: string) {
         throw new Error("Không thể chuyển nhượng cho chính mình")
       }
 
+      // Lấy kỳ hụi hiện tại (nếu có)
+      const currentSession = await tx.huiSession.findFirst({
+        where: { huiGroupId: member.huiGroupId },
+        orderBy: { sessionNumber: "desc" }
+      })
+
       // Lưu lịch sử
       await tx.transferHistory.create({
         data: {
           huiGroupId: member.huiGroupId,
           fromUserId: member.userId,
           toUserId: buyer.id,
-          memberId: member.id
+          memberId: member.id,
+          sessionNumber: currentSession ? currentSession.sessionNumber : 1
         }
       })
 

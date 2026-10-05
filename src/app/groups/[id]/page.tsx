@@ -34,9 +34,13 @@ export default async function GroupDetailPage(props: { params: Promise<{ id: str
 
   if (!group) notFound()
 
-  // Access Control: Allow view if user is admin, is member, or if the group is public
+  // Access Control: Allow view if user is admin, current member, former member/seller, or if the group is public
   const isMember = group.huiMembers.some(m => m.userId === user.id)
-  if (!isAdmin && !group.isPublic && !isMember) {
+  const isParticipant = 
+    group.transferHistories.some(th => th.fromUserId === user.id || th.toUserId === user.id) ||
+    group.sessions.some(s => s.payments.some(p => p.userId === user.id))
+
+  if (!isAdmin && !group.isPublic && !isMember && !isParticipant) {
     notFound()
   }
 

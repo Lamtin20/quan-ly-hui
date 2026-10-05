@@ -192,10 +192,10 @@ export function GroupDetail({
     
     initialGroup.sessions.forEach(s => {
       if (s.status === "DONE") {
-        const payment = s.payments.find(p => p.userId === userId)
-        if (payment) {
-          totalPaid += payment.amountToPay
-        }
+        const userPayments = s.payments.filter(p => p.userId === userId)
+        userPayments.forEach(p => {
+          totalPaid += p.amountToPay
+        })
       }
     })
 
@@ -497,11 +497,12 @@ export function GroupDetail({
                 Thành Viên Dây Hụi ({initialGroup.huiMembers.length})
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-4 space-y-3 max-h-[500px] overflow-y-auto">
+            <CardContent className="p-4 space-y-3 max-h-[600px] overflow-y-auto">
               {initialGroup.huiMembers.map((member) => {
                 const metrics = getMemberMetrics(member.userId)
                 const u = member.user
                 const userAvatar = u.avatar || "👤"
+                const transferNotice = initialGroup.transferHistories?.find((th: any) => th.memberId === member.id)
                 
                 return (
                   <div 
@@ -528,6 +529,11 @@ export function GroupDetail({
                         <div className="flex flex-col">
                           <span className="text-xs font-bold text-slate-800 truncate max-w-[120px]">{u.fullName}</span>
                           <span className="text-[9px] text-slate-400 font-mono mt-0.5">{u.phone}</span>
+                          {transferNotice && (
+                            <span className="text-[8.5px] font-bold text-amber-700 mt-0.5">
+                              (Nhận từ {transferNotice.fromUser.fullName})
+                            </span>
+                          )}
                         </div>
                       </div>
 
@@ -583,6 +589,64 @@ export function GroupDetail({
                   </div>
                 )
               })}
+
+              {/* Former members who transferred/sold their stakes */}
+              {(() => {
+                const activeUserIds = new Set(initialGroup.huiMembers.map((m: any) => m.userId))
+                const formerSellersMap = new Map<string, any>()
+                if (initialGroup.transferHistories) {
+                  initialGroup.transferHistories.forEach((hist: any) => {
+                    if (!activeUserIds.has(hist.fromUserId) && !formerSellersMap.has(hist.fromUserId)) {
+                      formerSellersMap.set(hist.fromUserId, hist)
+                    }
+                  })
+                }
+                const formerSellers = Array.from(formerSellersMap.values())
+                if (formerSellers.length === 0) return null
+
+                return (
+                  <div className="pt-3 border-t border-slate-200/80 space-y-2">
+                    <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider block px-1">
+                      Đã bán hụi / Dừng chơi ({formerSellers.length})
+                    </span>
+                    {formerSellers.map((hist: any) => {
+                      const seller = hist.fromUser
+                      const sellerMetrics = getMemberMetrics(seller.id)
+                      const sellerAvatar = seller.avatar || "👤"
+
+                      return (
+                        <div key={hist.id} className="p-3 rounded-2xl border border-amber-200 bg-amber-50/20 space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 rounded-full bg-amber-100 border border-amber-200 flex items-center justify-center text-xs overflow-hidden flex-shrink-0">
+                                {sellerAvatar.startsWith("data:image") ? (
+                                  <img src={sellerAvatar} alt={seller.fullName} className="w-full h-full object-cover" />
+                                ) : (
+                                  sellerAvatar
+                                )}
+                              </div>
+                              <div>
+                                <div className="text-xs font-bold text-slate-800">{seller.fullName}</div>
+                                <div className="text-[9px] text-amber-700 font-medium">
+                                  Đã bán cho {hist.toUser.fullName} {hist.sessionNumber ? `(Kỳ ${hist.sessionNumber})` : ""}
+                                </div>
+                              </div>
+                            </div>
+                            <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[8px] font-black px-1.5 py-0.5 shadow-none">
+                              Đã bán
+                            </Badge>
+                          </div>
+
+                          <div className="pt-1.5 border-t border-amber-200/60 flex justify-between text-[9px] font-semibold">
+                            <span className="text-slate-500">Đã tích lũy trước khi bán:</span>
+                            <strong className="text-slate-800 font-extrabold">{formatVND(sellerMetrics.totalPaid)}</strong>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              })()}
             </CardContent>
           </Card>
 
@@ -596,9 +660,16 @@ export function GroupDetail({
               </CardHeader>
               <CardContent className="p-3 space-y-2 max-h-[300px] overflow-y-auto">
                 {initialGroup.transferHistories.map((hist: any) => (
-                  <div key={hist.id} className="text-[10px] text-slate-600 p-2 bg-white rounded-lg border border-amber-100">
-                    <strong>{hist.fromUser.fullName}</strong> đã bán cho <strong>{hist.toUser.fullName}</strong>
-                    <div className="text-slate-400 mt-1 text-[9px]">{formatDate(new Date(hist.transferDate))}</div>
+                  <div key={hist.id} className="text-[10px] text-slate-600 p-2.5 bg-white rounded-xl border border-amber-200 shadow-2xs space-y-1">
+                    <div className="flex items-center justify-between font-bold text-slate-800">
+                      <span><strong>{hist.fromUser.fullName}</strong> ➔ <strong>{hist.toUser.fullName}</strong></span>
+                      <Badge className="bg-amber-100 text-amber-800 text-[8px] font-black px-1.5 py-0.5 shadow-none border-none">
+                        {hist.sessionNumber ? `Kỳ ${hist.sessionNumber}` : "Đã bán"}
+                      </Badge>
+                    </div>
+                    <div className="text-slate-400 text-[9px] flex justify-between">
+                      <span>Thời gian: {formatDate(new Date(hist.transferDate))}</span>
+                    </div>
                   </div>
                 ))}
               </CardContent>

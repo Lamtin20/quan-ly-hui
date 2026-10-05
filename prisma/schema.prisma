@@ -113,13 +113,14 @@ model SystemSetting {
 }
 
 model TransferHistory {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
-  huiGroupId   String   @db.ObjectId
-  huiGroup     HuiGroup @relation(fields: [huiGroupId], references: [id], onDelete: Cascade)
-  fromUserId   String   @db.ObjectId
-  fromUser     User     @relation("FromUser", fields: [fromUserId], references: [id])
-  toUserId     String   @db.ObjectId
-  toUser       User     @relation("ToUser", fields: [toUserId], references: [id])
-  memberId     String   @db.ObjectId
-  transferDate DateTime @default(now())
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  huiGroupId    String   @db.ObjectId
+  huiGroup      HuiGroup @relation(fields: [huiGroupId], references: [id], onDelete: Cascade)
+  fromUserId    String   @db.ObjectId
+  fromUser      User     @relation("FromUser", fields: [fromUserId], references: [id])
+  toUserId      String   @db.ObjectId
+  toUser        User     @relation("ToUser", fields: [toUserId], references: [id])
+  memberId      String   @db.ObjectId
+  sessionNumber Int?
+  transferDate  DateTime @default(now())
 }

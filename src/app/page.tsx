@@ -15,10 +15,14 @@ export default async function DashboardPage() {
   const systemGroupsCount = isAdmin ? await prisma.huiGroup.count() : 0
   const systemActiveBiddingCount = isAdmin ? await prisma.huiSession.count({ where: { status: "BIDDING" } }) : 0
 
-  // Fetch groups where user is a participant
+  // Fetch groups where user is a participant (currently a member, paid in sessions, or transferred a stake)
   const userGroups = await prisma.huiGroup.findMany({
     where: {
-      huiMembers: { some: { userId: user.id } }
+      OR: [
+        { huiMembers: { some: { userId: user.id } } },
+        { sessions: { some: { payments: { some: { userId: user.id } } } } },
+        { transferHistories: { some: { OR: [{ fromUserId: user.id }, { toUserId: user.id }] } } }
+      ]
     },
     include: {
       huiMembers: {
@@ -31,6 +35,13 @@ export default async function DashboardPage() {
           }
         },
         orderBy: { sessionNumber: "asc" }
+      },
+      transferHistories: {
+        include: {
+          fromUser: true,
+          toUser: true
+        },
+        orderBy: { transferDate: "desc" }
       }
     },
     orderBy: { createdAt: "desc" }
@@ -46,39 +57,48 @@ export default async function DashboardPage() {
     let groupPaid = 0
     let groupReceived = 0
     let groupExpectedProfit = 0
+
+    const isCurrentMember = group.huiMembers.some(hm => hm.userId === user.id)
+    const userTransfers = group.transferHistories.filter(th => th.fromUserId === user.id)
+    const isTransferredAll = !isCurrentMember && userTransfers.length > 0
     
     // Check if user won any session in this group
-    const wonSession = group.sessions.find(s => s.status === "DONE" && s.winnerUserId === user.id)
-    if (wonSession) {
-      groupReceived = wonSession.winnerReceivedAmount || 0
-    }
+    const wonSessions = group.sessions.filter(s => s.status === "DONE" && s.winnerUserId === user.id)
+    wonSessions.forEach(ws => {
+      groupReceived += ws.winnerReceivedAmount || 0
+    })
 
     group.sessions.forEach(s => {
       if (s.status === "DONE") {
-        const payment = s.payments.find(p => p.userId === user.id)
-        if (payment) {
-          groupPaid += payment.amountToPay
-        }
+        const userPayments = s.payments.filter(p => p.userId === user.id)
+        userPayments.forEach(p => {
+          groupPaid += p.amountToPay
+        })
       } else if (s.status === "BIDDING" || s.status === "TIE_BREAKER") {
-        // Count active sessions where this user participates
-        activeBiddingCount++
+        if (isCurrentMember) {
+          activeBiddingCount++
+        }
       }
     })
 
     // Expected profit calculation
     const totalSlots = group.totalSlots
     const slotAmount = group.amount
+    const wonSession = wonSessions[0] || null
 
     if (wonSession) {
       const completedSessionsCount = group.sessions.filter(s => s.status === "DONE").length
       const remainingSessionsCount = Math.max(0, totalSlots - completedSessionsCount)
-      const futurePayments = slotAmount * remainingSessionsCount
+      const futurePayments = isCurrentMember ? slotAmount * remainingSessionsCount : 0
       const totalCost = groupPaid + futurePayments
       groupExpectedProfit = groupReceived - totalCost
     } else {
       group.sessions.forEach(s => {
         if (s.status === "DONE") {
-          groupExpectedProfit += s.bidAmount || 0
+          const userPayments = s.payments.filter(p => p.userId === user.id)
+          if (userPayments.length > 0) {
+            groupExpectedProfit += (s.bidAmount || 0) * userPayments.length
+          }
         }
       })
     }
@@ -102,7 +122,10 @@ export default async function DashboardPage() {
       groupReceived,
       groupExpectedProfit,
       isDead: !!wonSession,
-      wonSessionNumber: wonSession?.sessionNumber || null
+      wonSessionNumber: wonSession?.sessionNumber || null,
+      isCurrentMember,
+      isTransferredAll,
+      transfers: userTransfers
     }
   })
 
@@ -285,8 +308,12 @@ export default async function DashboardPage() {
                       </div>
                     </div>
 
-                    <div>
-                      {group.isDead ? (
+                    <div className="flex flex-col items-end gap-1">
+                      {group.isTransferredAll ? (
+                        <Badge className="bg-amber-50 text-amber-700 hover:bg-amber-50 border border-amber-200 text-[9px] font-extrabold px-1.5 py-0.5 rounded shadow-none">
+                          Đã bán / Chuyển nhượng
+                        </Badge>
+                      ) : group.isDead ? (
                         <Badge className="bg-rose-50 text-rose-700 hover:bg-rose-50 border border-rose-150 text-[9px] font-extrabold px-1.5 py-0.5 rounded shadow-none">
                           Hụi Chết (Kỳ {group.wonSessionNumber})
                         </Badge>

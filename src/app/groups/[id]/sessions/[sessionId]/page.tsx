@@ -14,6 +14,9 @@ export default async function SessionPage(props: { params: Promise<{ id: string,
         include: { 
           huiMembers: {
             include: { user: true }
+          },
+          transferHistories: {
+            include: { fromUser: true, toUser: true }
           }
         }
       },
@@ -30,7 +33,7 @@ export default async function SessionPage(props: { params: Promise<{ id: string,
 
   const previousSessions = await prisma.huiSession.findMany({
     where: { huiGroupId: id, status: "DONE" },
-    select: { winnerUserId: true, winnerMemberId: true, bidAmount: true, sessionNumber: true }
+    select: { winnerUserId: true, winnerMemberId: true, bidAmount: true, winnerReceivedAmount: true, sessionNumber: true }
   })
   const deadIds = previousSessions.map(s => s.winnerMemberId).filter(Boolean) as string[]
 

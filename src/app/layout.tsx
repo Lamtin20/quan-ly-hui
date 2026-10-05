@@ -74,11 +74,7 @@ export default async function RootLayout({
                   <div className="hidden md:block"><SidebarTrigger /></div>
                   <div className="text-sm md:text-base font-extrabold text-slate-800 flex items-center gap-1.5">
                     <span className="text-indigo-500">👋</span>
-                    <span>Chào, <span className="bg-gradient-to-r from-indigo-600 to-violet-650 bg-clip-text text-transparent">
-                      {user.fullName.trim().split(/\s+/).length <= 1 
-                        ? user.fullName 
-                        : user.fullName.trim().split(/\s+/).slice(1).join(" ")}
-                    </span>!</span>
+                    <span>Chào, <span className="text-indigo-650 font-black">{user.fullName}</span>!</span>
                   </div>
                 </div>
                 

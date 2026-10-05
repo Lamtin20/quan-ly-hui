@@ -198,45 +198,132 @@ export function BiddingArena({
   const renderBiddingState = () => (
     <div className="space-y-6">
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Danh sách Form nhập giá (Hỗ trợ 1 người nhiều chân hụi) */}
-        {myLivingStakes.map((stake: any) => {
+        {/* Danh sách Form nhập giá (Hỗ trợ 1 người nhiều chân hụi - sống & chết) */}
+        {myStakes.map((stake: any, idx: number) => {
+          const isDead = deadIds.includes(stake.id)
+          const transferNotice = session.huiGroup.transferHistories?.find((th: any) => th.memberId === stake.id)
+          const wonSession = isDead ? previousSessions.find((s: any) => s.winnerMemberId === stake.id) : null
           const myBid = session.bids.find((b: any) => b.huiMemberId === stake.id)
           const canEdit = myBid ? (Date.now() - new Date(myBid.createdAt).getTime() <= 2 * 60 * 60 * 1000) : false
           const hoursLeft = myBid ? Math.max(0, 2 - (Date.now() - new Date(myBid.createdAt).getTime()) / (1000 * 60 * 60)) : 0
 
+          // IF DEAD STAKE
+          if (isDead) {
+            return (
+              <Card key={stake.id} className="border-rose-100 shadow-md bg-rose-50/30 backdrop-blur-sm rounded-3xl overflow-hidden flex flex-col justify-between">
+                <CardHeader className="pb-3 border-b border-rose-100/60 bg-rose-50/50">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
+                      <Coins className="w-5 h-5 text-rose-500" />
+                      {stake.name ? stake.name : `Chân hụi #${idx + 1}`}
+                    </CardTitle>
+                    <Badge className="bg-rose-100 text-rose-700 hover:bg-rose-100 border border-rose-200 font-extrabold text-[10px] px-2.5 py-0.5 rounded-full shadow-none">
+                      Hụi Chết {wonSession?.sessionNumber ? `(Kỳ #${wonSession.sessionNumber})` : ''}
+                    </Badge>
+                  </div>
+                  {transferNotice ? (
+                    <CardDescription className="text-xs text-amber-700 font-bold mt-1">
+                      (Đã mua lại từ: <span className="font-extrabold">{transferNotice.fromUser.fullName}</span> - SĐT: {transferNotice.fromUser.phone})
+                    </CardDescription>
+                  ) : (
+                    <CardDescription className="text-xs text-slate-500 mt-1 font-medium">
+                      Chân hụi gốc của bạn
+                    </CardDescription>
+                  )}
+                </CardHeader>
+                <CardContent className="p-6 text-center space-y-3 my-auto">
+                  <div className="w-12 h-12 rounded-full bg-rose-100 flex items-center justify-center mx-auto text-rose-600 shadow-inner border border-rose-200">
+                    <Trophy className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-slate-800 text-sm">Chân hụi này đã hốt thành công</h4>
+                    <p className="text-xs text-slate-600 mt-1">
+                      Hốt ở <strong className="text-slate-800">Kỳ #{wonSession?.sessionNumber || 'trước'}</strong> - Giá bỏ: <strong className="text-rose-600">{formatVND(wonSession?.bidAmount || 0)}</strong>
+                    </p>
+                    <p className="text-[11px] text-slate-500 font-semibold mt-3 bg-white/80 p-2.5 rounded-2xl border border-rose-100 shadow-2xs">
+                      🔒 Hụi chết không thể bỏ thăm kêu giá nữa.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          }
+
+          // IF LIVE STAKE BUT ALREADY BIDDED AND EDIT EXPIRED
           if (myBid && !canEdit) {
             return (
-              <Card key={stake.id} className="border-emerald-100 shadow-lg bg-emerald-50/40 backdrop-blur-sm rounded-3xl">
-                <CardContent className="flex flex-col items-center justify-center p-8 text-center h-full">
-                  <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mb-4 shadow-inner">
-                    <Check className="w-8 h-8 text-emerald-600" />
+              <Card key={stake.id} className="border-emerald-100 shadow-lg bg-emerald-50/40 backdrop-blur-sm rounded-3xl overflow-hidden flex flex-col justify-between">
+                <CardHeader className="pb-3 border-b border-emerald-100/60 bg-emerald-50/50">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
+                      <Coins className="w-5 h-5 text-emerald-600" />
+                      {stake.name ? stake.name : `Chân hụi #${idx + 1}`}
+                    </CardTitle>
+                    <Badge className="bg-emerald-100 text-emerald-800 border border-emerald-200 font-extrabold text-[10px] px-2.5 py-0.5 rounded-full shadow-none">
+                      Hụi Sống
+                    </Badge>
                   </div>
-                  <h3 className="text-xl font-bold text-emerald-800">Đã gửi thăm thành công!</h3>
-                  <p className="text-emerald-700/80 text-sm mt-2">
-                    {stake.name ? `[${stake.name}] ` : ''}Bạn đã kêu: <span className="font-bold">{myBid.isWhiteTicket ? "Phiếu Trắng" : formatVND(myBid.amount)}</span>
+                  {transferNotice ? (
+                    <CardDescription className="text-xs text-amber-700 font-bold mt-1">
+                      (Đã mua lại từ: <span className="font-extrabold">{transferNotice.fromUser.fullName}</span> - SĐT: {transferNotice.fromUser.phone})
+                    </CardDescription>
+                  ) : (
+                    <CardDescription className="text-xs text-slate-500 mt-1 font-medium">
+                      Chân hụi gốc của bạn
+                    </CardDescription>
+                  )}
+                </CardHeader>
+                <CardContent className="flex flex-col items-center justify-center p-8 text-center h-full space-y-3">
+                  <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center shadow-inner">
+                    <Check className="w-7 h-7 text-emerald-600" />
+                  </div>
+                  <h3 className="text-lg font-bold text-emerald-800">Đã gửi thăm thành công!</h3>
+                  <p className="text-emerald-700 text-sm">
+                    Bạn đã kêu: <span className="font-black text-emerald-800">{myBid.isWhiteTicket ? "Phiếu Trắng" : formatVND(myBid.amount)}</span>
                   </p>
-                  <p className="text-xs text-emerald-600/60 mt-4 flex items-center gap-1.5 font-medium">
-                    <CircleDashed className="w-3.5 h-3.5 animate-spin" /> Đang chờ...
+                  <p className="text-xs text-emerald-600/70 font-medium flex items-center gap-1.5 pt-2">
+                    <CircleDashed className="w-3.5 h-3.5 animate-spin" /> Đang chờ chốt kỳ hụi...
                   </p>
                 </CardContent>
               </Card>
             )
           }
 
+          // IF LIVE STAKE AND CAN BID / EDIT
           return (
             <Card key={stake.id} className="border-indigo-100/60 shadow-lg bg-white/90 backdrop-blur-md rounded-3xl overflow-hidden">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                  <Coins className="w-5 h-5 text-indigo-500" /> {myBid ? "Sửa Phiếu Kêu Hụi" : "Bỏ Thăm Kêu Hụi"} {stake.name ? `(${stake.name})` : ''}
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  {myBid ? `Bạn còn ${Math.floor(hoursLeft * 60)} phút để sửa phiếu.` : "Nhập mức giá bạn muốn kêu cho kỳ này."}
-                </CardDescription>
+              <CardHeader className="pb-3 border-b border-indigo-50 bg-indigo-50/30">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
+                    <Coins className="w-5 h-5 text-indigo-500" />
+                    {myBid ? "Sửa Phiếu Kêu Hụi" : "Bỏ Thăm Kêu Hụi"} - {stake.name ? stake.name : `Chân hụi #${idx + 1}`}
+                  </CardTitle>
+                  <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-150 font-extrabold text-[10px] px-2.5 py-0.5 rounded-full shadow-none">
+                    Hụi Sống
+                  </Badge>
+                </div>
+                {transferNotice ? (
+                  <CardDescription className="text-xs text-amber-700 font-bold mt-1">
+                    (Đã mua lại từ: <span className="font-extrabold">{transferNotice.fromUser.fullName}</span> - SĐT: {transferNotice.fromUser.phone})
+                  </CardDescription>
+                ) : (
+                  <CardDescription className="text-xs text-slate-500 mt-1 font-medium">
+                    Chân hụi gốc của bạn
+                  </CardDescription>
+                )}
+                {myBid && (
+                  <div className="text-[10px] text-indigo-600 font-semibold mt-1">
+                    Bạn còn {Math.floor(hoursLeft * 60)} phút để chỉnh sửa phiếu.
+                  </div>
+                )}
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-5">
                 <form onSubmit={(e) => handleBidSubmit(e, stake.id)} className="space-y-4">
                   <div className="space-y-2">
-                    <Label className="text-slate-600 text-xs font-semibold uppercase tracking-wider block">Mức kêu tối đa: {formatVND(maxBid)}</Label>
+                    <div className="flex justify-between items-center">
+                      <Label className="text-slate-600 text-xs font-semibold uppercase tracking-wider block">Mức kêu tối đa:</Label>
+                      <span className="text-xs font-extrabold text-indigo-600">{formatVND(maxBid)}</span>
+                    </div>
                     <Input 
                       type="number" 
                       value={bidAmounts[stake.id] !== undefined ? bidAmounts[stake.id] : (myBid ? myBid.amount.toString() : "")} 

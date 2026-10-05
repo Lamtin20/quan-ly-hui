@@ -28,6 +28,7 @@ import {
 import Link from "next/link"
 import { submitBid, closeBidding, pickSphere } from "@/app/actions/bids"
 import { confirmPayment, confirmAllPayments, submitPaidSelf } from "@/app/actions/payments"
+import { getWinnerMemberId } from "@/lib/utils"
 
 export function BiddingArena({ 
   session, 
@@ -59,7 +60,16 @@ export function BiddingArena({
   }, [session.id, currentUser.id])
 
   const isAdmin = currentUser.role === "ADMIN"
-  const myStakes = session.huiGroup.huiMembers.filter((hm: any) => hm.userId === currentUser.id)
+  const myStakes = session.huiGroup.huiMembers
+    .filter((hm: any) => hm.userId === currentUser.id)
+    .sort((a: any, b: any) => {
+      const aIsBought = session.huiGroup.transferHistories?.some((th: any) => th.memberId === a.id && th.toUserId === currentUser.id)
+      const bIsBought = session.huiGroup.transferHistories?.some((th: any) => th.memberId === b.id && th.toUserId === currentUser.id)
+      if (!aIsBought && bIsBought) return -1
+      if (aIsBought && !bIsBought) return 1
+      return 0
+    })
+
   const myLivingStakes = myStakes.filter((hm: any) => !deadIds.includes(hm.id))
   // Dành cho Tie-breaker
   const tieBreakerStakes = myStakes.filter((hm: any) => session.tieBreakerData?.tiedMemberIds?.includes(hm.id))
@@ -202,7 +212,7 @@ export function BiddingArena({
         {myStakes.map((stake: any, idx: number) => {
           const isDead = deadIds.includes(stake.id)
           const transferNotice = session.huiGroup.transferHistories?.find((th: any) => th.memberId === stake.id && th.toUserId === currentUser.id)
-          const wonSession = isDead ? (previousSessions.find((s: any) => s.winnerMemberId === stake.id) || previousSessions.find((s: any) => s.winnerUserId === currentUser.id)) : null
+          const wonSession = isDead ? previousSessions.find((s: any) => getWinnerMemberId(s, session.huiGroup) === stake.id) : null
           const myBid = session.bids.find((b: any) => b.huiMemberId === stake.id)
           const canEdit = myBid ? (Date.now() - new Date(myBid.createdAt).getTime() <= 2 * 60 * 60 * 1000) : false
           const hoursLeft = myBid ? Math.max(0, 2 - (Date.now() - new Date(myBid.createdAt).getTime()) / (1000 * 60 * 60)) : 0

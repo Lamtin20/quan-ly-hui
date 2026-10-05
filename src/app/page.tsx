@@ -5,6 +5,7 @@ import { Users, CircleDollarSign, TrendingUp, Activity, ArrowRight, ShieldCheck,
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
+import { getWinnerMemberId, getMemberOwnerAtSession } from "@/lib/utils"
 
 export default async function DashboardPage() {
   const user = await requireUser()
@@ -62,17 +63,32 @@ export default async function DashboardPage() {
     const userTransfers = group.transferHistories.filter(th => th.fromUserId === user.id)
     const isTransferredAll = !isCurrentMember && userTransfers.length > 0
     
-    // Check if user won any session in this group
-    const wonSessions = group.sessions.filter(s => s.status === "DONE" && s.winnerUserId === user.id)
-    wonSessions.forEach(ws => {
-      groupReceived += ws.winnerReceivedAmount || 0
-    })
-
     group.sessions.forEach(s => {
       if (s.status === "DONE") {
-        const userPayments = s.payments.filter(p => p.userId === user.id)
-        userPayments.forEach(p => {
-          groupPaid += p.amountToPay
+        const winnerMemId = getWinnerMemberId(s, group)
+        const ownedMembersAtSession = group.huiMembers.filter(m => getMemberOwnerAtSession(m, s.sessionNumber, group) === user.id)
+
+        ownedMembersAtSession.forEach(m => {
+          const isWinnerOfThis = winnerMemId === m.id
+          if (isWinnerOfThis) {
+            groupReceived += s.winnerReceivedAmount || 0
+          } else {
+            const userPayments = s.payments?.filter(p => p.huiMemberId === m.id || p.userId === user.id)
+            if (userPayments && userPayments.length > 0) {
+              userPayments.forEach(p => {
+                groupPaid += p.amountToPay
+              })
+            } else {
+              const wonEarlier = group.sessions.some(prevS => 
+                prevS.status === "DONE" && 
+                prevS.sessionNumber < s.sessionNumber && 
+                getWinnerMemberId(prevS, group) === m.id
+              )
+              const isDead = wonEarlier
+              const amountToPay = isDead ? group.amount : Math.max(0, group.amount - (s.bidAmount || 0))
+              groupPaid += amountToPay
+            }
+          }
         })
       } else if (s.status === "BIDDING" || s.status === "TIE_BREAKER") {
         if (isCurrentMember) {
@@ -84,24 +100,42 @@ export default async function DashboardPage() {
     // Expected profit calculation
     const totalSlots = group.totalSlots
     const slotAmount = group.amount
-    const wonSession = wonSessions[0] || null
+    const currentStakes = group.huiMembers.filter(m => m.userId === user.id)
+    let hasWonAny = false
+    let primaryWonSessionNumber: number | null = null
 
-    if (wonSession) {
-      const completedSessionsCount = group.sessions.filter(s => s.status === "DONE").length
-      const remainingSessionsCount = Math.max(0, totalSlots - completedSessionsCount)
-      const futurePayments = isCurrentMember ? slotAmount * remainingSessionsCount : 0
-      const totalCost = groupPaid + futurePayments
-      groupExpectedProfit = groupReceived - totalCost
-    } else {
-      group.sessions.forEach(s => {
-        if (s.status === "DONE") {
-          const userPayments = s.payments.filter(p => p.userId === user.id)
-          if (userPayments.length > 0) {
-            groupExpectedProfit += (s.bidAmount || 0) * userPayments.length
+    currentStakes.forEach(m => {
+      const wonSessionForMember = group.sessions.find(s => s.status === "DONE" && getWinnerMemberId(s, group) === m.id)
+      if (wonSessionForMember) {
+        hasWonAny = true
+        if (!primaryWonSessionNumber) primaryWonSessionNumber = wonSessionForMember.sessionNumber
+
+        const completedSessionsCount = group.sessions.filter(s => s.status === "DONE").length
+        const remainingSessionsCount = Math.max(0, totalSlots - completedSessionsCount)
+        const futurePayments = slotAmount * remainingSessionsCount
+        
+        let slotPaid = 0
+        group.sessions.forEach(s => {
+          if (s.status === "DONE" && getWinnerMemberId(s, group) !== m.id) {
+            const userPayments = s.payments?.filter(p => p.huiMemberId === m.id)
+            if (userPayments && userPayments.length > 0) {
+              userPayments.forEach(p => slotPaid += p.amountToPay)
+            } else {
+              const wonEarlier = group.sessions.some(prevS => prevS.status === "DONE" && prevS.sessionNumber < s.sessionNumber && getWinnerMemberId(prevS, group) === m.id)
+              slotPaid += wonEarlier ? slotAmount : Math.max(0, slotAmount - (s.bidAmount || 0))
+            }
           }
-        }
-      })
-    }
+        })
+        const totalCost = slotPaid + futurePayments
+        groupExpectedProfit += (wonSessionForMember.winnerReceivedAmount || 0) - totalCost
+      } else {
+        group.sessions.forEach(s => {
+          if (s.status === "DONE") {
+            groupExpectedProfit += (s.bidAmount || 0)
+          }
+        })
+      }
+    })
 
     totalPaid += groupPaid
     totalReceived += groupReceived
@@ -121,8 +155,8 @@ export default async function DashboardPage() {
       groupPaid,
       groupReceived,
       groupExpectedProfit,
-      isDead: !!wonSession,
-      wonSessionNumber: wonSession?.sessionNumber || null,
+      isDead: hasWonAny,
+      wonSessionNumber: primaryWonSessionNumber,
       isCurrentMember,
       isTransferredAll,
       transfers: userTransfers

@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { QrCode, PlayCircle, ArrowRight, Loader2, AlertCircle, UserPlus, CalendarDays, CheckCircle2, UserCheck, ShieldAlert, Users, ChevronDown, ChevronUp } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { hasPassedJoinDeadline, getJoinDeadlineDate, formatDate } from "@/lib/utils"
+import { hasPassedJoinDeadline, getJoinDeadlineDate, formatDate, getWinnerMemberId } from "@/lib/utils"
 
 type FullGroup = HuiGroup & {
   huiMembers: (HuiMember & { user: User })[]
@@ -72,7 +72,7 @@ export function GroupDetail({
   // Find which sessions are done to track dead members
   const deadMemberIds = initialGroup.sessions
     .filter(s => s.status === "DONE")
-    .map(s => s.winnerUserId)
+    .map(s => getWinnerMemberId(s, initialGroup))
     .filter(Boolean) as string[]
 
   // Auto open transfer dialog
@@ -195,11 +195,14 @@ export function GroupDetail({
 
     initialGroup.sessions.forEach(s => {
       if (s.status === "DONE") {
-        const isWinnerOfThisSession = (memberId && s.winnerMemberId === memberId) || s.winnerUserId === userId
+        const winnerMemId = getWinnerMemberId(s, initialGroup)
+        const isWinnerOfThisSession = memberId ? winnerMemId === memberId : s.winnerUserId === userId
 
-        if (!isWinnerOfThisSession) {
+        if (isWinnerOfThisSession) {
+          totalReceived += s.winnerReceivedAmount || 0
+        } else {
           const userPayments = s.payments?.filter((p: any) => 
-            (memberId && p.huiMemberId === memberId) || p.userId === userId
+            memberId ? p.huiMemberId === memberId : p.userId === userId
           ) || []
 
           if (userPayments.length > 0) {
@@ -207,14 +210,12 @@ export function GroupDetail({
               totalPaid += p.amountToPay
             })
           } else {
-            const wonEarlierSession = initialGroup.sessions.find(prevS => {
+            const wonEarlierSession = initialGroup.sessions.some(prevS => {
               if (prevS.status !== "DONE" || prevS.sessionNumber >= s.sessionNumber) return false
-              if (memberId && prevS.winnerMemberId) {
-                return prevS.winnerMemberId === memberId
-              }
-              return prevS.winnerUserId === userId
+              const prevWinnerMemId = getWinnerMemberId(prevS, initialGroup)
+              return memberId ? prevWinnerMemId === memberId : prevS.winnerUserId === userId
             })
-            const isDead = !!wonEarlierSession
+            const isDead = wonEarlierSession
             const amountToPay = isDead ? initialGroup.amount : Math.max(0, initialGroup.amount - (s.bidAmount || 0))
             totalPaid += amountToPay
           }
@@ -224,14 +225,9 @@ export function GroupDetail({
 
     const wonSession = initialGroup.sessions.find(s => {
       if (s.status !== "DONE") return false
-      if (memberId && s.winnerMemberId) {
-        return s.winnerMemberId === memberId
-      }
-      return s.winnerUserId === userId
+      const winnerMemId = getWinnerMemberId(s, initialGroup)
+      return memberId ? winnerMemId === memberId : s.winnerUserId === userId
     })
-    if (wonSession) {
-      totalReceived = wonSession.winnerReceivedAmount || 0
-    }
 
     const netBalance = totalReceived - totalPaid
 

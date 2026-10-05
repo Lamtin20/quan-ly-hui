@@ -2,6 +2,7 @@ import { requireUser } from "@/lib/server-auth"
 import { prisma } from "@/lib/prisma"
 import { BiddingArena } from "./bidding-arena"
 import { redirect } from "next/navigation"
+import { getWinnerMemberId } from "@/lib/utils"
 
 export default async function SessionPage(props: { params: Promise<{ id: string, sessionId: string }> }) {
   const user = await requireUser()
@@ -37,25 +38,13 @@ export default async function SessionPage(props: { params: Promise<{ id: string,
   })
   const deadSet = new Set<string>()
   previousSessions.forEach(s => {
-    if (s.winnerMemberId) {
-      deadSet.add(s.winnerMemberId)
-    } else if (s.winnerUserId) {
-      const candidateMembers = session.huiGroup.huiMembers.filter((m: any) => {
-        const transferredToWinnerLater = session.huiGroup.transferHistories?.some((th: any) => 
-          th.memberId === m.id && 
-          th.toUserId === s.winnerUserId && 
-          th.sessionNumber && 
-          th.sessionNumber >= s.sessionNumber
-        )
-        if (transferredToWinnerLater) return false
-        return m.userId === s.winnerUserId || session.huiGroup.transferHistories?.some((th: any) => th.memberId === m.id && th.fromUserId === s.winnerUserId)
-      })
-      if (candidateMembers.length > 0) {
-        deadSet.add(candidateMembers[0].id)
-      }
+    const winnerMemId = getWinnerMemberId(s, session.huiGroup)
+    if (winnerMemId) {
+      deadSet.add(winnerMemId)
     }
   })
   const deadIds = Array.from(deadSet)
+
 
   const winnerUser = session.winnerUserId 
     ? await prisma.user.findUnique({ where: { id: session.winnerUserId } }) 

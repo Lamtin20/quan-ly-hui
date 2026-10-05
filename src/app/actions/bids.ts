@@ -22,6 +22,21 @@ export async function submitBid(sessionId: string, memberId: string, amount: num
     throw new Error("Chân hụi không hợp lệ hoặc bạn không có quyền")
   }
 
+  // Kiểm tra chân hụi này đã hốt (hụi chết) chưa
+  const deadSession = await prisma.huiSession.findFirst({
+    where: { 
+      huiGroupId: session.huiGroupId, 
+      status: "DONE", 
+      OR: [
+        { winnerMemberId: memberId },
+        { winnerUserId: member.userId }
+      ] 
+    }
+  })
+  if (deadSession) {
+    throw new Error(`Chân hụi này đã hốt ở Kỳ #${deadSession.sessionNumber} (Hụi Chết), không thể bỏ thăm nữa!`)
+  }
+
   const maxBid = (session.huiGroup.amount * session.huiGroup.maxBidPercentage) / 100
   if (!isWhiteTicket && amount > maxBid) {
     throw new Error(`Giá kêu không được vượt quá ${session.huiGroup.maxBidPercentage}% (${maxBid} đ)`)

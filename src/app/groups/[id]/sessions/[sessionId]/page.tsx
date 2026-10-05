@@ -35,7 +35,21 @@ export default async function SessionPage(props: { params: Promise<{ id: string,
     where: { huiGroupId: id, status: "DONE" },
     select: { winnerUserId: true, winnerMemberId: true, bidAmount: true, winnerReceivedAmount: true, sessionNumber: true }
   })
-  const deadIds = previousSessions.map(s => s.winnerMemberId).filter(Boolean) as string[]
+  const deadSet = new Set<string>()
+  previousSessions.forEach(s => {
+    if (s.winnerMemberId) {
+      deadSet.add(s.winnerMemberId)
+    }
+    if (s.winnerUserId) {
+      const matched = session.huiGroup.huiMembers.filter((m: any) => m.userId === s.winnerUserId)
+      matched.forEach((m: any) => {
+        if (!s.winnerMemberId || s.winnerMemberId === m.id) {
+          deadSet.add(m.id)
+        }
+      })
+    }
+  })
+  const deadIds = Array.from(deadSet)
 
   const winnerUser = session.winnerUserId 
     ? await prisma.user.findUnique({ where: { id: session.winnerUserId } }) 

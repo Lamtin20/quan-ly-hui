@@ -186,20 +186,43 @@ export function GroupDetail({
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount)
   }
 
-  const getMemberMetrics = (userId: string) => {
+  const getMemberMetrics = (memberOrUserId: any) => {
     let totalPaid = 0
     let totalReceived = 0
     
+    const userId = typeof memberOrUserId === "string" ? memberOrUserId : memberOrUserId.userId
+    const memberId = typeof memberOrUserId === "object" ? memberOrUserId.id : null
+
     initialGroup.sessions.forEach(s => {
       if (s.status === "DONE") {
-        const userPayments = s.payments.filter(p => p.userId === userId)
-        userPayments.forEach(p => {
-          totalPaid += p.amountToPay
-        })
+        const isWinnerOfThisSession = (memberId && s.winnerMemberId === memberId) || s.winnerUserId === userId
+
+        if (!isWinnerOfThisSession) {
+          const userPayments = s.payments?.filter((p: any) => 
+            (memberId && p.huiMemberId === memberId) || p.userId === userId
+          ) || []
+
+          if (userPayments.length > 0) {
+            userPayments.forEach((p: any) => {
+              totalPaid += p.amountToPay
+            })
+          } else {
+            const wonEarlierSession = initialGroup.sessions.find(prevS => 
+              prevS.status === "DONE" && 
+              prevS.sessionNumber < s.sessionNumber && 
+              ((memberId && prevS.winnerMemberId === memberId) || prevS.winnerUserId === userId)
+            )
+            const isDead = !!wonEarlierSession
+            const amountToPay = isDead ? initialGroup.amount : Math.max(0, initialGroup.amount - (s.bidAmount || 0))
+            totalPaid += amountToPay
+          }
+        }
       }
     })
 
-    const wonSession = initialGroup.sessions.find(s => s.status === "DONE" && s.winnerUserId === userId)
+    const wonSession = initialGroup.sessions.find(s => 
+      s.status === "DONE" && ((memberId && s.winnerMemberId === memberId) || s.winnerUserId === userId)
+    )
     if (wonSession) {
       totalReceived = wonSession.winnerReceivedAmount || 0
     }
@@ -499,7 +522,7 @@ export function GroupDetail({
             </CardHeader>
             <CardContent className="p-4 space-y-3 max-h-[600px] overflow-y-auto">
               {initialGroup.huiMembers.map((member) => {
-                const metrics = getMemberMetrics(member.userId)
+                const metrics = getMemberMetrics(member)
                 const u = member.user
                 const userAvatar = u.avatar || "👤"
                 const transferNotice = initialGroup.transferHistories?.find((th: any) => th.memberId === member.id)

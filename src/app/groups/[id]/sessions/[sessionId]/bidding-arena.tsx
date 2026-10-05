@@ -383,19 +383,30 @@ export function BiddingArena({
           <CardContent>
             <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
               {session.huiGroup.huiMembers.filter((hm:any) => !deadIds.includes(hm.id)).map((hm: any) => {
-                const userBid = session.bids.find((b: any) => b.userId === hm.userId)
+                const userBid = session.bids.find((b: any) => (b.huiMemberId && b.huiMemberId === hm.id) || b.userId === hm.userId)
                 const hasBid = !!userBid
+                const transferNotice = session.huiGroup.transferHistories?.find((th: any) => th.memberId === hm.id)
+
                 return (
-                  <div key={hm.userId} className="flex items-center justify-between p-3 rounded-2xl bg-slate-50/70 border border-slate-100">
+                  <div key={hm.id} className="flex items-center justify-between p-3 rounded-2xl bg-slate-50/70 border border-slate-100">
                     <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-full bg-slate-200/80 flex items-center justify-center text-xs font-semibold text-slate-700 overflow-hidden border">
+                      <div className="w-7 h-7 rounded-full bg-slate-200/80 flex items-center justify-center text-xs font-semibold text-slate-700 overflow-hidden border flex-shrink-0">
                         {hm.user.avatar && hm.user.avatar.startsWith("data:image") ? (
                           <img src={hm.user.avatar} alt={hm.user.fullName} className="w-full h-full object-cover" />
                         ) : (
                           hm.user.avatar || "👤"
                         )}
                       </div>
-                      <span className="font-semibold text-slate-700 text-sm">{hm.user.fullName}</span>
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-slate-700 text-sm">
+                          {hm.user.fullName} {hm.name ? `(${hm.name})` : ""}
+                        </span>
+                        {transferNotice && (
+                          <span className="text-[9px] text-amber-700 font-semibold">
+                            (Nhận từ {transferNotice.fromUser.fullName})
+                          </span>
+                        )}
+                      </div>
                     </div>
                     {hasBid ? (
                       isAdmin && showAdminBids ? (

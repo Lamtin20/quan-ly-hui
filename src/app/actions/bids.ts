@@ -22,17 +22,29 @@ export async function submitBid(sessionId: string, memberId: string, amount: num
     throw new Error("Chân hụi không hợp lệ hoặc bạn không có quyền")
   }
 
-  // Kiểm tra chân hụi này đã hốt (hụi chết) chưa
-  const deadSession = await prisma.huiSession.findFirst({
+  // Kiểm tra chân hụi cụ thể này đã hốt (hụi chết) chưa
+  let deadSession = await prisma.huiSession.findFirst({
     where: { 
       huiGroupId: session.huiGroupId, 
       status: "DONE", 
-      OR: [
-        { winnerMemberId: memberId },
-        { winnerUserId: member.userId }
-      ] 
+      winnerMemberId: memberId
     }
   })
+
+  if (!deadSession) {
+    const legacySession = await prisma.huiSession.findFirst({
+      where: {
+        huiGroupId: session.huiGroupId,
+        status: "DONE",
+        winnerMemberId: null,
+        winnerUserId: member.userId
+      }
+    })
+    if (legacySession) {
+      deadSession = legacySession
+    }
+  }
+
   if (deadSession) {
     throw new Error(`Chân hụi này đã hốt ở Kỳ #${deadSession.sessionNumber} (Hụi Chết), không thể bỏ thăm nữa!`)
   }

@@ -39,14 +39,11 @@ export default async function SessionPage(props: { params: Promise<{ id: string,
   previousSessions.forEach(s => {
     if (s.winnerMemberId) {
       deadSet.add(s.winnerMemberId)
-    }
-    if (s.winnerUserId) {
-      const matched = session.huiGroup.huiMembers.filter((m: any) => m.userId === s.winnerUserId)
-      matched.forEach((m: any) => {
-        if (!s.winnerMemberId || s.winnerMemberId === m.id) {
-          deadSet.add(m.id)
-        }
-      })
+    } else if (s.winnerUserId) {
+      const matched = session.huiGroup.huiMembers.find((m: any) => m.userId === s.winnerUserId)
+      if (matched) {
+        deadSet.add(matched.id)
+      }
     }
   })
   const deadIds = Array.from(deadSet)

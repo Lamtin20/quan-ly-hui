@@ -207,11 +207,13 @@ export function GroupDetail({
               totalPaid += p.amountToPay
             })
           } else {
-            const wonEarlierSession = initialGroup.sessions.find(prevS => 
-              prevS.status === "DONE" && 
-              prevS.sessionNumber < s.sessionNumber && 
-              ((memberId && prevS.winnerMemberId === memberId) || prevS.winnerUserId === userId)
-            )
+            const wonEarlierSession = initialGroup.sessions.find(prevS => {
+              if (prevS.status !== "DONE" || prevS.sessionNumber >= s.sessionNumber) return false
+              if (memberId && prevS.winnerMemberId) {
+                return prevS.winnerMemberId === memberId
+              }
+              return prevS.winnerUserId === userId
+            })
             const isDead = !!wonEarlierSession
             const amountToPay = isDead ? initialGroup.amount : Math.max(0, initialGroup.amount - (s.bidAmount || 0))
             totalPaid += amountToPay
@@ -220,9 +222,13 @@ export function GroupDetail({
       }
     })
 
-    const wonSession = initialGroup.sessions.find(s => 
-      s.status === "DONE" && ((memberId && s.winnerMemberId === memberId) || s.winnerUserId === userId)
-    )
+    const wonSession = initialGroup.sessions.find(s => {
+      if (s.status !== "DONE") return false
+      if (memberId && s.winnerMemberId) {
+        return s.winnerMemberId === memberId
+      }
+      return s.winnerUserId === userId
+    })
     if (wonSession) {
       totalReceived = wonSession.winnerReceivedAmount || 0
     }

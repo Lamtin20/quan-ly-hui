@@ -333,8 +333,12 @@ export function BiddingArena({
 
   const renderTieBreakerState = () => {
     const data = session.tieBreakerData as any
-    const amIInvolved = data.tiedUserIds.includes(currentUser.id)
-    const haveIPicked = amIInvolved && data.selected[currentUser.id]
+    const myTiedMemberIds = data.tiedMemberIds ? data.tiedMemberIds.filter((mid: string) => 
+      initialGroup.huiMembers.some(hm => hm.id === mid && hm.userId === currentUser.id)
+    ) : []
+    const amIInvolved = myTiedMemberIds.length > 0
+    const firstUnpickedMemberId = myTiedMemberIds.find((mid: string) => !data.selected[mid])
+    const haveIPicked = amIInvolved && !firstUnpickedMemberId
 
     // List of colors for glossy lottery balls
     const BALL_GRADIENTS = [
@@ -360,7 +364,7 @@ export function BiddingArena({
             </div>
             <CardTitle className="text-2xl font-black text-slate-800">Trùng giá kêu cao nhất!</CardTitle>
             <CardDescription className="text-xs max-w-md mx-auto leading-relaxed mt-1">
-              Có <span className="font-bold text-indigo-600">{data.tiedUserIds.length} thành viên</span> cùng kêu mức giá cao nhất. Mỗi người cần chọn 1 quả bóng may mắn, ai có số điểm cao nhất sẽ giành quyền hốt hụi kỳ này!
+              Có <span className="font-bold text-indigo-600">{data.tiedMemberIds?.length || 0} chân hụi</span> cùng kêu mức giá cao nhất. Mỗi người cần chọn quả bóng may mắn, ai có số điểm cao nhất sẽ giành quyền hốt hụi kỳ này!
             </CardDescription>
           </CardHeader>
 
@@ -385,7 +389,9 @@ export function BiddingArena({
                       <motion.button
                         key={i}
                         disabled={sphereLoading || haveIPicked}
-                        onClick={() => handlePickSphere(i)}
+                        onClick={() => {
+                          if (firstUnpickedMemberId) handlePickSphere(i, firstUnpickedMemberId)
+                        }}
                         whileHover={!haveIPicked ? { scale: 1.15, y: -4, rotate: 6 } : {}}
                         whileTap={!haveIPicked ? { scale: 0.95 } : {}}
                         animate={
@@ -426,7 +432,10 @@ export function BiddingArena({
                 {haveIPicked && (
                   <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl text-center max-w-sm">
                     <p className="text-xs font-bold text-emerald-800">
-                      Điểm số bạn bốc được là: <span className="text-xl font-black text-emerald-600 block mt-1">{data.selected[currentUser.id]} điểm</span>
+                      Điểm số bạn bốc được là: 
+                      {myTiedMemberIds.map((mid: string) => data.selected[mid] ? (
+                        <span key={mid} className="text-xl font-black text-emerald-600 block mt-1">{data.selected[mid]} điểm</span>
+                      ) : null)}
                     </p>
                     <p className="text-[10px] text-emerald-600 font-semibold mt-1">Đang chờ các thành viên khác hoàn tất lượt bốc của họ...</p>
                   </div>
@@ -437,18 +446,19 @@ export function BiddingArena({
             {/* Spectator/Progress view for everyone */}
             <div className="space-y-4">
               <h3 className="text-xs font-bold text-slate-400 tracking-wider uppercase flex items-center gap-2">
-                <Users className="w-4 h-4 text-indigo-500" /> Bảng Theo Dõi Bốc Thăm ({Object.keys(data.selected).length}/{data.tiedUserIds.length})
+                <Users className="w-4 h-4 text-indigo-500" /> Bảng Theo Dõi Bốc Thăm ({Object.keys(data.selected).length}/{data.tiedMemberIds?.length || 0})
               </h3>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                {data.tiedUserIds.map((uid: string) => {
-                  const u = session.bids.find((b: any) => b.userId === uid)?.user
-                  const num = data.selected[uid]
-                  const isMe = uid === currentUser.id
+                {(data.tiedMemberIds || []).map((mid: string) => {
+                  const hm = initialGroup.huiMembers.find(m => m.id === mid)
+                  const u = hm?.user
+                  const num = data.selected[mid]
+                  const isMe = hm?.userId === currentUser.id
 
                   return (
                     <div 
-                      key={uid} 
+                      key={mid} 
                       className={`p-4 rounded-2xl border transition-all flex items-center justify-between bg-white shadow-sm
                         ${isMe ? "border-indigo-200 bg-indigo-50/20" : "border-slate-100"}
                       `}
